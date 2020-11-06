@@ -1,0 +1,894 @@
+Controlador
+
+using Microsoft.AspNet.Identity;
+using ProyectoWEB.Models.BVDH_Models;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Net.Mail;
+using System.Web;
+using System.Web.Mvc;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Chofer")]
+    public class ManejoUnidadController : Controller
+    {
+
+        private BVDH_Entities db = new BVDH_Entities();
+
+        public ActionResult Index()
+        {
+            string userId = User.Identity.GetUserId();
+            var idChofer = (from c in db.Chofer where c.id == userId select c.idChofer).FirstOrDefault();
+            var data = from b in db.Bitacora where b.idChofer == idChofer select b;
+
+            if(!data.Any())
+            {
+                ViewBag.status = true;
+                ViewBag.drivelessState = false;
+            }
+            else
+            {
+                ViewBag.drivelessState = true;
+            }
+
+            return View(data.ToList());
+
+        }
+
+        public ActionResult typeOfTransport()
+        {
+            return View();
+        }
+
+        public ActionResult driveOut(int type)
+        {
+            
+            var date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            string userId = User.Identity.GetUserId();
+            ViewBag.idChofer = new SelectList(db.Chofer.Where(s => s.id == userId), "idChofer", "cedChofer");
+            ViewBag.fechaActual = date;
+
+            var idChofer = (from c in db.Chofer where c.id == userId select c.idChofer).FirstOrDefault();
+            var licencia = (from c in db.Chofer where c.id == userId select c.tipoLicencia).FirstOrDefault();
+
+            bool exist = db.Bitacora.Any(x => x.idChofer == idChofer);
+
+            if (exist == true)
+            {
+                //return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+                return View("~/Views/Shared/Error.cshtml");
+            }
+
+           if(type == 1)
+           {
+                if (licencia.Equals("A2"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Motocicleta"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("A3"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Motocicleta"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("A4"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Motocicleta"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B1"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("B2"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("B3"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("B4"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+            }
+            else if(type == 2)
+            {
+                if (licencia.Equals("B1"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Camioneta"), "idUnidad", "numUnidad");
+                }
+                else if(licencia.Equals("B2"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Camioneta"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B3"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Camioneta"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B4"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Camioneta"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("A2"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("A3"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("A4"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+            }
+            else if (type == 3)
+            {
+                if (licencia.Equals("B1"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Vehículo Liviano"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B2"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Vehículo Liviano"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B3"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Vehículo Liviano"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B4"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Vehículo Liviano"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("A2"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("A3"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("A4"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+            }
+            else if (type == 4)
+            {
+                if (licencia.Equals("B1"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Unidad de aprehensión"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B2"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Unidad de aprehensión"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B3"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "Unidad de aprehensión"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("B4"))
+                {
+                    ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" && s.tipoUnidad == "VUnidad de aprehensión"), "idUnidad", "numUnidad");
+                }
+                else if (licencia.Equals("A2"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("A3"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+                else if (licencia.Equals("A4"))
+                {
+                    return View("~/Views/Shared/Error.cshtml");
+                }
+
+            }
+
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult driveOut([Bind(Include = "idBitacora,idChofer,idUnidad,fechaHora,fechaHoraLlegada,motivoUso,estado")] Bitacora bitacora)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Bitacora.Add(bitacora);
+                Unidad unidad = db.Unidad.Find(bitacora.idUnidad);
+                unidad.estado = "En uso";
+                db.Entry(unidad).State = EntityState.Modified;
+                db.SaveChanges();
+
+                var idDatosU = (from d in db.DatosUnidad where d.idUnidad == unidad.idUnidad select d.idDatosU).FirstOrDefault();
+
+                //Envio de correo
+                try
+                {
+                   
+                    string emailOrigen = ConfigurationManager.AppSettings["email"];
+                    string emailDestino = "leosgoni18@gmail.com";
+                    string password = ConfigurationManager.AppSettings["password"];
+
+                    var numUnidad = (from u in db.Unidad where u.idUnidad == bitacora.idUnidad select u.numUnidad).FirstOrDefault();
+                    var cedChofer = (from c in db.Chofer where c.idChofer == bitacora.idChofer select c.cedChofer).FirstOrDefault();
+
+                    MailMessage mailMessage = new MailMessage(emailOrigen, emailDestino, "BVDH - Salida de unidad", 
+                        "<h1>BVDH le informa que la unidad " + numUnidad + " ha salido de la delegación por parte " +
+                        "del chofer cédula " + cedChofer + " a las " + bitacora.fechaHora + "</h1>"
+
+                        );
+
+                    mailMessage.IsBodyHtml = true;
+
+                    SmtpClient smtpClient = new SmtpClient("smtp.gmail.com");
+                    smtpClient.EnableSsl = true;
+                    smtpClient.UseDefaultCredentials = false;
+                    smtpClient.Port = 587;
+                    smtpClient.Credentials = new System.Net.NetworkCredential(emailOrigen, password);
+
+                    smtpClient.Send(mailMessage);
+
+                    smtpClient.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+
+                return RedirectToAction("EditDatosUnidad", "ManejoUnidad", new { id = idDatosU});
+            }
+            else
+            {
+                return View("~/Views/Shared/Error.cshtml");
+            }
+
+        }
+
+        // GET: DatosUnidads/Edit/5
+        public ActionResult EditDatosUnidad(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            DatosUnidad datosUnidad = db.DatosUnidad.Find(id);
+            if (datosUnidad == null)
+            {
+                return HttpNotFound();
+            }
+            
+            string userId = User.Identity.GetUserId();
+            var chofer = (from c in db.Chofer where c.id == userId select c.idChofer).FirstOrDefault();
+            var unidad = (from b in db.Bitacora where b.idChofer == chofer select b.idUnidad).FirstOrDefault();
+
+            ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.idUnidad == unidad), "idUnidad", "numUnidad");
+
+            return View(datosUnidad);
+        }
+
+        // POST: DatosUnidads/Edit/5
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult EditDatosUnidad([Bind(Include = "idDatosU,idUnidad,kilometrajeInicial,kilometrajeFinal,litrosGasolina,rendimiento,estado")] DatosUnidad datosUnidad)
+        {
+            var kInicial = (from c in db.DatosUnidad where c.idDatosU == datosUnidad.idDatosU select c.kilometrajeInicial).FirstOrDefault();
+
+            if (kInicial > datosUnidad.kilometrajeInicial)
+            {
+                ModelState.AddModelError("kilometrajeInicial", "El kilometraje debe ser mayor al indicado");
+            }
+
+            if (ModelState.IsValid)
+            {
+                db.Entry(datosUnidad).State = EntityState.Modified;
+                db.SaveChanges();
+
+                return RedirectToAction("Index");
+            }
+
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad", datosUnidad.idUnidad);
+
+            return View(datosUnidad);
+        }
+
+
+        public ActionResult driveIn(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Bitacora bitacora = db.Bitacora.Find(id);
+            if (bitacora == null)
+            {
+                return HttpNotFound();
+            }
+
+            var date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            ViewBag.fechaActualLlegada = date;
+            string userId = User.Identity.GetUserId();
+
+            ViewBag.idChofer = new SelectList(db.Chofer.Where(s => s.id == userId), "idChofer", "cedChofer");
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad", bitacora.idUnidad);
+
+            return View(bitacora);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult driveIn([Bind(Include = "idBitacora,idChofer,idUnidad,fechaHora,fechaHoraLlegada,motivoUso,estado")] Bitacora bitacora)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(bitacora).State = EntityState.Modified;
+                Unidad unidad = db.Unidad.Find(bitacora.idUnidad);
+                unidad.estado = "Disponible";
+
+                var idDatosU = (from d in db.DatosUnidad where d.idUnidad == unidad.idUnidad select d.idDatosU).FirstOrDefault();
+                db.Entry(unidad).State = EntityState.Modified;
+               
+                //Envio de correo
+                try
+                {
+
+                    string emailOrigen = ConfigurationManager.AppSettings["email"];
+                    string emailDestino = "leosgoni18@gmail.com";
+                    string password = ConfigurationManager.AppSettings["password"];
+
+                    var numUnidad = (from u in db.Unidad where u.idUnidad == bitacora.idUnidad select u.numUnidad).FirstOrDefault();
+                    var cedChofer = (from c in db.Chofer where c.idChofer == bitacora.idChofer select c.cedChofer).FirstOrDefault();
+
+                    MailMessage mailMessage = new MailMessage(emailOrigen, emailDestino, "BVDH - Entrada de unidad",
+                        "<h1>BVDH le informa que la unidad " + numUnidad + " ha entrado a la delegación por parte " +
+                        "del chofer cédula " + cedChofer + " a las " + bitacora.fechaHoraLlegada + "</h1>"
+                        );
+
+                    mailMessage.IsBodyHtml = true;
+
+                    SmtpClient smtpClient = new SmtpClient("smtp.gmail.com");
+                    smtpClient.EnableSsl = true;
+                    smtpClient.UseDefaultCredentials = false;
+                    smtpClient.Port = 587;
+                    smtpClient.Credentials = new System.Net.NetworkCredential(emailOrigen, password);
+
+                    smtpClient.Send(mailMessage);
+
+                    smtpClient.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+
+                db.Bitacora.Remove(bitacora);
+                db.SaveChanges();
+
+                return RedirectToAction("EditDatosUnidadFinal", "ManejoUnidad" , new { id = idDatosU});
+            }
+            string userId = User.Identity.GetUserId();
+            ViewBag.idChofer = new SelectList(db.Chofer.Where(s => s.id == userId), "idChofer", "cedChofer");
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad", bitacora.idUnidad);
+
+            return View(bitacora);
+        }
+
+
+
+        // GET: DatosUnidads/Edit/5
+        public ActionResult EditDatosUnidadFinal(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            DatosUnidad datosUnidad = db.DatosUnidad.Find(id);
+            if (datosUnidad == null)
+            {
+                return HttpNotFound();
+            }
+
+            //string userId = User.Identity.GetUserId();
+            //var chofer = (from c in db.Chofer where c.id == userId select c.idChofer).FirstOrDefault();
+            //var unidad = (from b in db.Bitacora_historica where b.idChofer == chofer select b.idUnidad).FirstOrDefault();
+
+            ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.idUnidad == datosUnidad.idUnidad), "idUnidad", "numUnidad");
+
+            
+            return View(datosUnidad);
+        }
+
+        // POST: DatosUnidads/Edit/5
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult EditDatosUnidadFinal([Bind(Include = "idDatosU,idUnidad,kilometrajeInicial,kilometrajeFinal,litrosGasolina,rendimiento,estado")] DatosUnidad datosUnidad)
+        {
+            var kInicial = (from c in db.DatosUnidad where c.idDatosU == datosUnidad.idDatosU select c.kilometrajeInicial).FirstOrDefault();
+
+            if(kInicial > datosUnidad.kilometrajeFinal)
+            {
+                ModelState.AddModelError("kilometrajeFinal", "El kilometraje debe ser mayor al indicado");
+            }
+            if (ModelState.IsValid)
+            {
+                db.Entry(datosUnidad).State = EntityState.Modified;
+                db.SaveChanges();
+
+                return RedirectToAction("Index");
+            }
+
+            //string userId = User.Identity.GetUserId();
+            //var chofer = (from c in db.Chofer where c.id == userId select c.idChofer).FirstOrDefault();
+            //var unidad = (from b in db.Bitacora_historica where b.idChofer == chofer select b.idUnidad).FirstOrDefault();
+
+            ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.idUnidad == datosUnidad.idUnidad), "idUnidad", "numUnidad");
+
+            return View(datosUnidad);
+        }
+
+
+    }
+}
+
+
+***********************************************************************************************************************************************************************
+Vistas
+
+• driveIn
+
+@model ProyectoWEB.Models.BVDH_Models.Bitacora
+
+@{
+    ViewBag.Title = "Entregar Unidad";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+
+<h2>Entregar unidad</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        @Html.HiddenFor(model => model.idBitacora)
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cédula Chofer</label>
+                @Html.DropDownList("idChofer", null, htmlAttributes: new { @class = "form-control"})
+                @Html.ValidationMessageFor(model => model.idChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Unidad usada</label>
+                @Html.HiddenFor(model => model.idUnidad)
+                @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control", @disabled = "disabled" })
+                @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Hora de salida</label>
+                @Html.EditorFor(model => model.fechaHora, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+                @Html.ValidationMessageFor(model => model.fechaHora, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Hora de llegada</label>
+                @Html.EditorFor(model => model.fechaHoraLlegada, new { htmlAttributes = new { @class = "form-control", @Value = ViewBag.fechaActualLlegada, @readonly = "readonly" } })
+                @Html.ValidationMessageFor(model => model.fechaHoraLlegada, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Motivo de uso</label>
+                @Html.EditorFor(model => model.motivoUso, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+                @Html.ValidationMessageFor(model => model.motivoUso, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+        <br />
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Entregar unidad" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• driveOut
+
+@model ProyectoWEB.Models.BVDH_Models.Bitacora
+
+@{
+    ViewBag.Title = "Retiro de unidad";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+
+<h2>Retirar unidad</h2>
+
+@using (Html.BeginForm()) 
+{
+    @Html.AntiForgeryToken()
+    
+<div class="form-horizontal">
+    <hr />
+    @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Cédula Chofer</label>
+            @Html.DropDownList("idChofer", null, htmlAttributes: new { @class = "form-control" })
+            @Html.ValidationMessageFor(model => model.idChofer, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Unidades disponibles</label>
+            @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control" })
+            @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Hora de salida</label>
+            @Html.EditorFor(model => model.fechaHora, new { htmlAttributes = new { @class = "form-control", @Value = ViewBag.fechaActual, @readonly = "readonly" }})
+            @Html.ValidationMessageFor(model => model.fechaHora, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    @*<div class="form-group">
+            @Html.LabelFor(model => model.fechaHoraLlegada, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.fechaHoraLlegada, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.fechaHoraLlegada, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Motivo de uso</label>
+            @Html.EditorFor(model => model.motivoUso, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.motivoUso, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+    <br />
+
+    <div class="form-group">
+        <div class="col-md-offset-2 col-md-10">
+            <input type="submit" value="Retirar" class="btn btn-primary mr-2" />
+            <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+        </div>
+    </div>
+</div>
+}
+
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+• EditDatosUnidad
+
+@model ProyectoWEB.Models.BVDH_Models.DatosUnidad
+
+@{
+    ViewBag.Title = "Retiro de unidad";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+
+<h2>Editar datos de la unidad</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        @Html.HiddenFor(model => model.idDatosU)
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Número Unidad</label>
+            @Html.HiddenFor(model => model.idUnidad)
+            @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control", @disabled = "disabled" })
+            @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Kilometraje</label>
+                @Html.EditorFor(model => model.kilometrajeInicial, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.kilometrajeInicial, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.kilometrajeFinal, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.kilometrajeFinal, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.kilometrajeFinal, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Capacidad combustible</label>
+                @Html.EditorFor(model => model.litrosGasolina, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+                @Html.ValidationMessageFor(model => model.litrosGasolina, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.rendimiento, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.rendimiento, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.rendimiento, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Guardar" class="btn btn-primary" />
+            </div>
+        </div>
+    </div>
+}
+
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+• EditDatosUnidadFinal
+
+@model ProyectoWEB.Models.BVDH_Models.DatosUnidad
+
+@{
+    ViewBag.Title = "Entregar Unidad";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+
+<h2>Editar datos de la unidad</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+<div class="form-horizontal">
+    <hr />
+    @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+    @Html.HiddenFor(model => model.idDatosU)
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Número Unidad</label>
+            @Html.HiddenFor(model => model.idUnidad)
+            @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control", @disabled = "disabled" })
+            @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Kilometraje al inicio</label>
+            @Html.EditorFor(model => model.kilometrajeInicial, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+            @Html.ValidationMessageFor(model => model.kilometrajeInicial, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Kilometraje al final</label>
+            @Html.EditorFor(model => model.kilometrajeFinal, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.kilometrajeFinal, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Capacidad combustible</label>
+            @Html.EditorFor(model => model.litrosGasolina, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+            @Html.ValidationMessageFor(model => model.litrosGasolina, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    @*<div class="form-group">
+            @Html.LabelFor(model => model.rendimiento, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.rendimiento, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.rendimiento, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+    @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+    <div class="form-group">
+        <div class="col-md-offset-2 col-md-10">
+            <input type="submit" value="Guardar" class="btn btn-primary" />
+        </div>
+    </div>
+</div>
+
+}
+
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+• Index
+
+@model IEnumerable<ProyectoWEB.Models.BVDH_Models.Bitacora>
+
+@{
+    ViewBag.Title = "Entrada y salida de unidades";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+
+    <div hidden="@ViewBag.status">
+        <h2>Unidad en uso</h2>
+        <br />
+        <table class="table">
+            <tr>
+                <th>
+                    @Html.Label("Número Unidad")
+                </th>
+                <th>
+                    @Html.Label("Cédula Chofer")
+                </th>
+                <th>
+                    @Html.Label("Tipo de unidad")
+                </th>
+                <th>
+                    @Html.Label("Hora de salida")
+                </th>
+                <th>
+                    @Html.Label("Motivo de uso")
+                </th>
+                <th></th>
+            </tr>
+
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Unidad.numUnidad)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Chofer.cedChofer)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Unidad.tipoUnidad)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.fechaHora)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.motivoUso)
+
+                    </td>
+                    <td>
+                        @*@Html.ActionLink("Edit", "Edit", new { id=item.idBitacora }) |
+                        @Html.ActionLink("Details", "Details", new { id=item.idBitacora }) |
+                        @Html.ActionLink("Delete", "Delete", new { id=item.idBitacora })*@
+                        @Html.ActionLink("Entregar unidad", "driveIn", new { id = item.idBitacora })
+                    </td>
+                </tr>
+            }
+        </table>
+    </div>
+<div hidden="@ViewBag.drivelessState">
+    <h2>Ninguna unidad en uso. @Html.ActionLink("Tomar unidad", "typeOfTransport")</h2>
+</div>
+
+
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+• typeOfTransport
+
+
+@{
+    ViewBag.Title = "Retirar unidad";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+<div class="container align-self-md-center">
+    <h2>Tipo de unidades disponibles</h2>
+    <br /><br />
+    <a class="btn btn-primary btn-block" href="@Url.Action("driveOut", "ManejoUnidad", new { type = 1})"><i class="fas fa-motorcycle"></i>  Motocicleta</a>
+    <br />
+    <a class="btn btn-primary btn-block" href="@Url.Action("driveOut", "ManejoUnidad", new { type = 2})"><i class="fas fa-truck-pickup"></i>  Camioneta</a>
+    <br />
+    <a class="btn btn-primary btn-block" href="@Url.Action("driveOut", "ManejoUnidad", new { type = 3})"><i class="fas fa-car-side"></i>  Vehículo Liviano</a>
+    <br />
+    <a class="btn btn-primary btn-block" href="@Url.Action("driveOut", "ManejoUnidad", new { type = 4})"><i class="fas fa-truck"></i>  Unidad de aprehensión</a>
+    <br />
+</div>
+
+<style>
+ /* Style buttons */
+.btn {
+  /*background-color: DodgerBlue; /* Blue background */
+  border: none; /* Remove borders */
+  color: white; /* White text */
+  padding: 12px 16px; /* Some padding */
+  font-size: 17px; /* Set a font size */
+  cursor: pointer; /* Mouse pointer on hover */
+  border-radius: 24px;
+}
+
+/* Darker background on mouse-over */
+.btn:hover {
+  background-color: RoyalBlue;
+}
+    </style>

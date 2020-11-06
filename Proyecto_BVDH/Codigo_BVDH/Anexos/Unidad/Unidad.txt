@@ -1,0 +1,790 @@
+Controlador
+
+• UnidadsController
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Web;
+using System.Web.Mvc;
+using ProyectoWEB.Models.BVDH_Models;
+using PagedList;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Admin")]
+
+    public class UnidadsController : Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+
+        // GET: Unidads
+        public ActionResult Index(string ordenar, string buscar,string filtroActual, int? pagina)
+        {
+            ViewBag.numUnidadSortParm = String.IsNullOrEmpty(ordenar) ? "numUnidad_desc" : "";
+            ViewBag.tipoUnidadSortParm = ordenar == "tipoUnidad" ? "tipoUnidad_desc" : "tipoUnidad";
+            ViewBag.fabricanteSortParm = ordenar == "fabricante" ? "fabricante_desc" : "fabricante";
+            ViewBag.modeloSortParm = ordenar == "modelo" ? "modelo_desc" : "modelo";
+            ViewBag.fechaRevisionRTVSortParm = ordenar == "fechaRevisionRTV" ? "fechaRevisionRTV_desc" : "fechaRevisionRTV";
+            ViewBag.isAlDiaSortParm = ordenar == "isAlDia" ? "isAlDia_desc" : "isAlDia";
+            ViewBag.estadoSortParm = ordenar == "estado" ? "estado_desc" : "estado";
+            if (buscar != null)
+            {
+                pagina = 1;
+            }
+            else
+            {
+                buscar = filtroActual;
+            }
+            ViewBag.filtroActual = buscar;
+            var unidades = from s in db.Unidad
+                           where s.estado == "Disponible" || s.estado == "En uso"
+                           select s;
+            if (!String.IsNullOrEmpty(buscar))
+            {
+                unidades = unidades.Where(s => s.numUnidad.ToString().Contains(buscar) ||
+                s.fabricante.Contains(buscar) || s.modelo.ToString().Contains(buscar)  ||
+                s.fechaRevisionRTV.ToString().Contains(buscar));
+            }
+            switch (ordenar)
+            {
+                case "numUnidad_desc":
+                    unidades = unidades.OrderByDescending(s => s.numUnidad);
+                    break;
+                case "tipoUnidad":
+                    unidades = unidades.OrderBy(s => s.tipoUnidad);
+                    break;
+                case "tipoUnidad_desc":
+                    unidades = unidades.OrderByDescending(s => s.tipoUnidad);
+                    break;
+                case "fabricante":
+                    unidades = unidades.OrderBy(s => s.fabricante);
+                    break;
+                case "fabricante_desc":
+                    unidades = unidades.OrderByDescending(s => s.fabricante);
+                    break;
+                case "modelo":
+                    unidades = unidades.OrderBy(s => s.modelo);
+                    break;
+                case "modelo_desc":
+                    unidades = unidades.OrderByDescending(s => s.modelo);
+                    break;
+                case "fechaRevisionRTV":
+                    unidades = unidades.OrderBy(s => s.fechaRevisionRTV);
+                    break;
+                case "fechaRevisionRTV_desc":
+                    unidades = unidades.OrderByDescending(s => s.fechaRevisionRTV);
+                    break;
+                case "isAlDia":
+                    unidades = unidades.OrderBy(s => s.isAlDia);
+                    break;
+                case "isAlDia_desc":
+                    unidades = unidades.OrderByDescending(s => s.isAlDia);
+                    break;
+                case "estado":
+                    unidades = unidades.OrderBy(s => s.estado);
+                    break;
+                case "estado_desc":
+                    unidades = unidades.OrderByDescending(s => s.estado);
+                    break;
+                default:
+                    unidades = unidades.OrderBy(s => s.numUnidad);
+                    break;
+            }
+            int extPagina = 5;
+            int numPagina = (pagina ?? 1);
+            return View(unidades.ToPagedList(numPagina, extPagina));
+        }
+
+        // GET: Unidads/Create
+        public ActionResult Create()
+        {            
+                return View();
+        }
+
+        // POST: Unidads/Create
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que desea enlazarse. Para obtener 
+        // más información vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create([Bind(Include = "idUnidad,numUnidad,tipoUnidad,fabricante,modelo,fechaRevisionRTV,isAlDia,estado")] Unidad unidad)
+        {
+            if (db.Unidad.Any(x => x.numUnidad == unidad.numUnidad))
+            {
+                ModelState.AddModelError("numUnidad", "El número de unidad ingresado ya existe");
+            }
+            if (ModelState.IsValid)
+            {
+                db.Unidad.Add(unidad);
+                db.SaveChanges();
+
+                if(unidad.isAlDia == "RTV no al dia")
+                {
+                    unidad.estado = "Inactivo";
+                    db.SaveChanges();
+                }
+
+
+                return RedirectToAction("Index");
+            }
+            return View(unidad);
+        }
+
+        // GET: Unidads/Edit/5
+        public ActionResult Edit(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Unidad unidad = db.Unidad.Find(id);
+            if (unidad == null)
+            {
+                return HttpNotFound();
+            }
+            return View(unidad);
+        }
+
+        // POST: Unidads/Edit/5
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que desea enlazarse. Para obtener 
+        // más información vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Edit([Bind(Include = "idUnidad,numUnidad,tipoUnidad,fabricante,modelo,fechaRevisionRTV,isAlDia,estado")] Unidad unidad)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(unidad).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            if (unidad.isAlDia == "RTV no al dia")
+            {
+                unidad.estado = "Inactivo";
+                db.SaveChanges();
+            }
+            return View(unidad);
+        }
+
+        // GET: Unidads/Delete/5
+        public ActionResult Delete(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Unidad unidad = db.Unidad.Find(id);
+            if (unidad == null)
+            {
+                return HttpNotFound();
+            }
+            return View(unidad);
+        }
+
+        // POST: Unidads/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            Unidad unidad = db.Unidad.Find(id);
+            unidad.estado = "Inactivo";
+            db.Entry(unidad).State = EntityState.Modified;
+            db.SaveChanges();
+
+            var datosU = (from d in db.DatosUnidad where d.idUnidad == id select d.idDatosU).FirstOrDefault();
+            DatosUnidad datosUnidad = db.DatosUnidad.Find(datosU);
+            datosUnidad.estado = "Inactivo";
+            db.Entry(datosUnidad).State = EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        public ActionResult DataDisabled()
+        {
+            var datosDesactivados = from s in db.Unidad where s.estado == "Inactivo" select s;
+            return View(datosDesactivados.ToList());
+        }
+
+        // GET: Unidads/Activate/5
+        public ActionResult Activate(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Unidad unidad = db.Unidad.Find(id);
+            if (unidad == null)
+            {
+                return HttpNotFound();
+            }
+            return View(unidad);
+        }
+
+        // POST: Unidads/Activate/5
+        [HttpPost, ActionName("Activate")]
+        [ValidateAntiForgeryToken]
+        public ActionResult ActivateConfirmed(int id)
+        {
+            Unidad unidad = db.Unidad.Find(id);
+            unidad.estado = "Disponible";
+            db.Entry(unidad).State = EntityState.Modified;
+            db.SaveChanges();
+
+            var datosU = (from d in db.DatosUnidad where d.idUnidad == id select d.idDatosU).FirstOrDefault();
+            DatosUnidad datosUnidad = db.DatosUnidad.Find(datosU);
+            datosUnidad.estado = null;
+            db.Entry(datosUnidad).State = EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}
+
+***********************************************************************************************************************************************************************
+Vistas
+
+• Activate
+
+@model ProyectoWEB.Models.BVDH_Models.Unidad
+
+@{
+    ViewBag.Title = "Unidad";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Activar Unidad</h2>
+<br />
+<h3>¿Está seguro de activar la unidad @Html.DisplayFor(model => model.numUnidad)?</h3>
+<div>
+    <hr />
+    <dl class="dl-horizontal">
+        <dt>
+            <label>Número Unidad</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.numUnidad)
+        </dd>
+
+        <dt>
+            <label>Fabricante</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.fabricante)
+        </dd>
+
+        <dt>
+            <label>Tipo</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.tipoUnidad)
+        </dd>
+
+        <dt>
+            <label>Modelo</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.modelo)
+        </dd>
+
+        <dt>
+            <label>Ult. Revisión RTV</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.fechaRevisionRTV)
+        </dd>
+
+        <dt>
+            <label>RTV</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.isAlDia)
+        </dd>
+
+    </dl>
+
+    @using (Html.BeginForm()) {
+        @Html.AntiForgeryToken()
+
+<div class="form-actions no-color">
+    <input type="submit" value="Activar" class="btn btn-primary mr-2" /> 
+    <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+</div>
+    }
+</div>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+• Create
+
+@model ProyectoWEB.Models.BVDH_Models.Unidad
+
+@{
+    ViewBag.Title = "Unidades";
+}
+
+<h2>Registrar nueva unidad</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+<div class="form-horizontal">
+    <hr />
+    @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+    <br />
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Número Unidad</label>
+            @Html.EditorFor(model => model.numUnidad, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.numUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Tipo</label>
+            @Html.DropDownListFor(model => model.tipoUnidad, new SelectListItem[] {
+               new SelectListItem() { Text = "Camioneta", Value = "Camioneta"},
+               new SelectListItem() { Text = "Motocicleta", Value = "Motocicleta"},
+               new SelectListItem() { Text = "Unidad de aprehensión", Value = "Unidad de aprehensión"},
+               new SelectListItem() { Text = "Vehículo Liviano", Value = "Vehículo Liviano"},
+               }, new { @class = "form-control" })
+            @Html.ValidationMessageFor(model => model.tipoUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Fabricante</label>
+            @Html.EditorFor(model => model.fabricante, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.fabricante, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Modelo</label>
+            @Html.EditorFor(model => model.modelo, new { htmlAttributes = new { @class = "form-control" , @type = "number" } })
+            @Html.ValidationMessageFor(model => model.modelo, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Ult. Revisión RTV</label>
+            <br />
+            @Html.EditorFor(model => model.fechaRevisionRTV, new { htmlAttributes = new { @class = "form-control", @type = "date" } })
+            @Html.ValidationMessageFor(model => model.fechaRevisionRTV, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Estado</label>
+            @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control", @Value = "Disponible", @readonly = "readonly" } })
+            @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <br />
+
+    <div class="form-group">
+        <div class="col-md-offset-2 col-md-10">
+            <input type="submit" value="Registrar" class="btn btn-primary mr-2" />
+            <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+        </div>
+    </div>
+</div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• DataDisabled
+
+@model IEnumerable<ProyectoWEB.Models.BVDH_Models.Unidad>
+
+@{
+    ViewBag.Title = "Unidad";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Unidades Desactivadas</h2>
+<br />
+<table class="table">
+    <tr>
+        <th>
+            <label>Número Unidad</label>
+        </th>
+        <th>
+            <label>Tipo</label>
+        </th>
+        <th>
+            <label>Fabricante</label>
+        </th>
+        <th>
+            <label>Modelo</label>
+        </th>
+        <th>
+            <label>Ult. Revisión RTV</label>
+        </th>
+        <th>
+            <label>Modelo</label>
+        </th>
+        <th>
+            <label>RTV</label>
+        </th>
+        <th></th>
+    </tr>
+
+@foreach (var item in Model) {
+<tr>
+    <td>
+        @Html.DisplayFor(modelItem => item.numUnidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.tipoUnidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.fabricante)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.modelo)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.fechaRevisionRTV)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.isAlDia)
+    </td>
+    <td>
+        @Html.ActionLink("Activar", "Activate", new { id = item.idUnidad })
+    </td>
+</tr>
+}
+
+</table>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Delete
+
+@model ProyectoWEB.Models.BVDH_Models.Unidad
+
+@{
+    ViewBag.Title = "Unidades";
+}
+
+<h2>Desactivar unidad</h2>
+<br />
+<h3>¿Está seguro de desactivar la unidad @Html.DisplayFor(model => model.numUnidad)?</h3>
+<div>
+    <hr />
+    <dl class="dl-horizontal">
+        <dt>
+            <label>Número Unidad</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.numUnidad)
+        </dd>
+
+        <dt>
+            <label>Tipo</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.tipoUnidad)
+        </dd>
+
+        <dt>
+            <label>Fabricante</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.fabricante)
+        </dd>
+
+        <dt>
+            <label>Modelo</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.modelo)
+        </dd>
+
+        <dt>
+            <label>Ult. Revisión RTV</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.fechaRevisionRTV)
+        </dd>
+
+        <dt>
+            <label>RTV</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.isAlDia)
+        </dd>
+
+    </dl>
+
+    @using (Html.BeginForm()) {
+        @Html.AntiForgeryToken()
+        <br />
+<div class="form-actions no-color">
+    <input type="submit" value="Desactivar" class="btn btn-primary mr-2" />
+    <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+</div>
+    }
+</div>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Edit
+
+@model ProyectoWEB.Models.BVDH_Models.Unidad
+
+@{
+    ViewBag.Title = "Unidades";
+}
+
+<h2>Editar Unidad</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+<div class="form-horizontal">
+    <hr />
+    @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+    @Html.HiddenFor(model => model.idUnidad)
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Número Unidad</label>
+            @Html.EditorFor(model => model.numUnidad, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+            @Html.ValidationMessageFor(model => model.numUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Tipo</label>
+            @Html.DropDownListFor(model => model.tipoUnidad, new SelectListItem[] {
+               new SelectListItem() { Text = "Camioneta", Value = "Camioneta"},
+               new SelectListItem() { Text = "Motocicleta", Value = "Motocicleta"},
+               new SelectListItem() { Text = "Unidad de aprehensión", Value = "Unidad de aprehensión"},
+               new SelectListItem() { Text = "Vehículo Liviano", Value = "Vehículo Liviano"},
+               }, new { @class = "form-control" })
+            @Html.ValidationMessageFor(model => model.tipoUnidad, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Fabricante</label>
+            @Html.EditorFor(model => model.fabricante, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.fabricante, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Modelo</label>
+            @Html.EditorFor(model => model.modelo, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.modelo, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Ult. Revisión RTV</label>
+            <br />
+            @Html.EditorFor(model => model.fechaRevisionRTV, new { htmlAttributes = new { @class = "form-control", @type = "date" } })
+            @Html.ValidationMessageFor(model => model.fechaRevisionRTV, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>RTV</label>
+            @Html.EditorFor(model => model.isAlDia, new { htmlAttributes = new { @class = "form-control", @readonly = "readonly" } })
+            @Html.ValidationMessageFor(model => model.isAlDia, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+    <br />
+    <div class="form-group">
+        <div class="col-md-offset-2 col-md-10">
+            <input type="submit" value="Guardar cambios" class="btn btn-primary mr-2" />
+            <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+        </div>
+    </div>
+</div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Index
+
+
+@model PagedList.IPagedList<ProyectoWEB.Models.BVDH_Models.Unidad>
+
+
+@using PagedList.Mvc;
+<link href="~/Content/PagedList.css" rel="stylesheet" />
+@{
+    ViewBag.Title = "Unidades";
+}
+
+<h2>Lista de Unidades</h2>
+
+<p>
+    @Html.ActionLink("Ingresar Unidad", "Create")
+</p>
+<br />
+@using (Html.BeginForm("Index", "Unidads", FormMethod.Get))
+{
+    <p>
+        @Html.TextBox("buscar", ViewBag.filtroActual as string)
+        <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
+    </p>
+}
+<table class="table">
+    <tr>
+        <th>
+            @Html.ActionLink("Número Unidad", "Index", new
+            {
+                ordenar = ViewBag.numUnidadSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("Tipo", "Index", new
+            {
+                ordenar = ViewBag.tipoUnidadSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("Fabricante", "Index", new
+            {
+                ordenar = ViewBag.fabricanteSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("Modelo", "Index", new
+            {
+                ordenar = ViewBag.modeloSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("Ult. Revisión RTV", "Index", new
+            {
+                ordenar = ViewBag.fechaRevisionRTVSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("RTV", "Index", new
+            {
+                ordenar = ViewBag.isAlDiaSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("Estado", "Index", new
+            {
+                ordenar = ViewBag.estadoSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+<tr>
+    <td>
+        @Html.DisplayFor(modelItem => item.numUnidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.tipoUnidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.fabricante)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.modelo)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.fechaRevisionRTV)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.isAlDia)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.estado)
+    </td>
+    <td>
+        @Html.ActionLink("Editar", "Edit", new { id = item.idUnidad }) |
+        @Html.ActionLink("Desactivar", "Delete", new { id = item.idUnidad })
+    </td>
+</tr>
+    }
+
+</table>
+@Html.ActionLink("Datos Desactivados", "DataDisabled")
+<nav>
+    @Html.PagedListPager(Model, pagina => Url.Action("Index",
+    new { pagina, ordenar = ViewBag.tipoActual, filtroActual = ViewBag.FiltroActual }))
+</nav>
+

@@ -1,0 +1,478 @@
+• Controlador
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Web;
+using System.Web.Mvc;
+using PagedList;
+using ProyectoWEB.Models.BVDH_Models;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Admin")]
+    public class EstadoChofersController : Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+
+        // GET: EstadoChofers
+        //idEstadoC,idChofer,tipoEstado,descripcion,estado
+        public ActionResult Index(string ordenar, string buscar, string filtroActual, int? pagina)
+        {
+            ViewBag.cedChoferSortParm = String.IsNullOrEmpty(ordenar) ? "cedChofer_desc" : "";
+            ViewBag.tipoEstadoSortParm = ordenar == "tipoEstado" ? "tipoEstado_desc" : "tipoEstado";
+            ViewBag.nombreChoferSortParm = ordenar == "nombreChofer" ? "nombreChofer_desc" : "nombreChofer";
+            
+
+            if (buscar != null)
+            {
+                pagina = 1;
+            }
+            else
+            {
+                buscar = filtroActual;
+            }
+            ViewBag.filtroActual = buscar;
+            var estChofer = from s in db.EstadoChofer where  s.estado == null select s;
+
+            if (!String.IsNullOrEmpty(buscar))
+            {
+                estChofer = estChofer.Where(s => s.Chofer.cedChofer.ToString().Contains(buscar) ||
+                s.tipoEstado.Contains(buscar) || s.Chofer.nombreChofer.Contains(buscar) ||
+                s.descripcion.Contains(buscar));
+            }
+
+            switch (ordenar)
+            {
+                case "cedChofer_desc":
+                    estChofer = estChofer.OrderByDescending(s => s.Chofer.cedChofer);
+                    break;
+
+                case "tipoEstado":
+                    estChofer = estChofer.OrderBy(s => s.tipoEstado);
+                    break;
+
+                case "tipoEstado_desc":
+                    estChofer = estChofer.OrderByDescending(s => s.tipoEstado);
+                    break;
+
+                case "nombreChofer":
+                    estChofer = estChofer.OrderBy(s => s.Chofer.nombreChofer);
+                    break;
+
+                case "nombreChofer_desc":
+                    estChofer = estChofer.OrderByDescending(s => s.Chofer.nombreChofer);
+                    break;
+
+                default:
+                    estChofer = estChofer.OrderBy(s => s.Chofer.idChofer);
+                    break;
+            }
+
+            int extPagina = 5;
+            int numPagina = (pagina ?? 1);
+            return View(estChofer.ToPagedList(numPagina, extPagina));
+        }
+    
+
+        // GET: EstadoChofers/Create
+        public ActionResult Create()
+        {
+            ViewBag.idChofer = new SelectList(db.Chofer.Where(s => s.estado == null), "idChofer", "cedChofer");
+            return View();
+        }
+
+        // POST: EstadoChofers/Create
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create([Bind(Include = "idEstadoC,idChofer,tipoEstado,descripcion,estado")] EstadoChofer estadoChofer)
+        {
+            if (db.EstadoChofer.Any(x => x.idChofer == estadoChofer.idChofer))
+            {
+                ModelState.AddModelError("idChofer", "La cédula registrada ya existe");
+            }
+            if (ModelState.IsValid)
+            {
+                db.EstadoChofer.Add(estadoChofer);
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+
+            ViewBag.idChofer = new SelectList(db.Chofer, "idChofer", "cedChofer", estadoChofer.idChofer);
+            return View(estadoChofer);
+        }
+
+        // GET: EstadoChofers/Edit/5
+        public ActionResult Edit(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            EstadoChofer estadoChofer = db.EstadoChofer.Find(id);
+            if (estadoChofer == null)
+            {
+                return HttpNotFound();
+            }
+            ViewBag.idChofer = new SelectList(db.Chofer, "idChofer", "nombreChofer", estadoChofer.idChofer);
+            return View(estadoChofer);
+        }
+
+        // POST: EstadoChofers/Edit/5
+        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
+        // more details see https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Edit([Bind(Include = "idEstadoC,idChofer,tipoEstado,descripcion,estado")] EstadoChofer estadoChofer)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(estadoChofer).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            ViewBag.idChofer = new SelectList(db.Chofer, "idChofer", "nombreChofer", estadoChofer.idChofer);
+            return View(estadoChofer);
+        }
+
+        // GET: EstadoChofers/Delete/5
+        public ActionResult Delete(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            EstadoChofer estadoChofer = db.EstadoChofer.Find(id);
+            if (estadoChofer == null)
+            {
+                return HttpNotFound();
+            }
+            return View(estadoChofer);
+        }
+
+        // POST: EstadoChofers/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            EstadoChofer estadoChofer = db.EstadoChofer.Find(id);
+            estadoChofer.estado = "Inactivo";
+            db.Entry(estadoChofer).State = EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("Index");
+
+        }
+
+        public ActionResult DataDisabled()
+        {
+            var datosDesactivados = from s in db.EstadoChofer where s.estado == "Inactivo" select s;
+            return View(datosDesactivados.ToList());
+        }
+
+        // GET: EstadoUnidads/Activate/5
+        public ActionResult Activate(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            EstadoChofer estadoChofer = db.EstadoChofer.Find(id);
+            if (estadoChofer == null)
+            {
+                return HttpNotFound();
+            }
+            return View(estadoChofer);
+        }
+
+        // POST: EstadoUnidads/Activate/5
+        [HttpPost, ActionName("Activate")]
+        [ValidateAntiForgeryToken]
+        public ActionResult ActivateConfirmed(int id)
+        {
+            EstadoChofer estadoChofer = db.EstadoChofer.Find(id);
+            estadoChofer.estado = null;
+            db.Entry(estadoChofer).State = EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}
+
+
+
+
+
+
+
+***********************************************************************************************************************************************************************
+Vistas
+
+
+
+
+• Create 
+
+@model ProyectoWEB.Models.BVDH_Models.EstadoChofer
+
+@{
+    ViewBag.Title = "Estado Chofer";
+}
+
+<h2>Registrar nuevo estado</h2>
+
+@using (Html.BeginForm()) 
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        <div class="form-group">          
+            <div class="col-md-10">
+                <label>Cédula chofer</label>
+                @Html.DropDownList("idChofer", null, htmlAttributes: new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.idChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Tipo de estado</label>
+                @Html.DropDownListFor(model => model.tipoEstado, new SelectListItem[]
+             {
+                 new SelectListItem() {Text = "Activo" , Value = "Activo"},
+                 new SelectListItem() {Text = "Inactivo" , Value = "Inactivo"},
+                 }, new { @class = "form-control" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Descripcion</label>
+                @Html.EditorFor(model => model.descripcion, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.descripcion, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Registrar" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• DataDisabled
+
+@model IEnumerable<ProyectoWEB.Models.BVDH_Models.EstadoChofer>
+
+@{
+    ViewBag.Title = "DataDisabled";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Choferes Desactivados</h2>
+<br />
+
+<table class="table">
+    <tr>
+        <th>
+            Nombre chofer
+        </th>
+        <th>
+            Tipo estado
+        </th>
+        <th>
+            Descripción
+        </th>
+
+
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Chofer.nombreChofer)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.tipoEstado)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.descripcion)
+            </td>
+
+            <td>
+                @Html.ActionLink("Activar", "Activate", new { id = item.idEstadoC })
+            </td>
+        </tr>
+    }
+
+</table>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+
+
+
+• Edit
+
+@model ProyectoWEB.Models.BVDH_Models.EstadoChofer
+
+@{
+    ViewBag.Title = "Estado Chofer";
+}
+
+<h2>Editar estado</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+<div class="form-horizontal">
+    <hr />
+    @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+    @Html.HiddenFor(model => model.idEstadoC)
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Cédula chofer</label>
+            @Html.HiddenFor(model => model.idChofer)
+            @Html.DropDownList("idChofer", null, htmlAttributes: new { @class = "form-control", @disabled = "disabled" })
+            @Html.ValidationMessageFor(model => model.idChofer, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Estado</label>
+            @Html.DropDownListFor(model => model.tipoEstado, new SelectListItem[]
+            {
+            new SelectListItem() {Text = "Activo" , Value = "Activo"},
+            new SelectListItem() {Text = "Inactivo" , Value = "Inactivo"},
+            }, new { @class = "form-control" })
+            @Html.ValidationMessageFor(model => model.tipoEstado, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Descripción</label>
+            @Html.EditorFor(model => model.descripcion, new { htmlAttributes = new { @class = "form-control" } })
+            @Html.ValidationMessageFor(model => model.descripcion, "", new { @class = "text-danger" })
+        </div>
+    </div>
+
+    @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+    <br />
+    <div class="form-group">
+        <div class="col-md-offset-2 col-md-10">
+            <input type="submit" value="Guardar cambios" class="btn btn-primary mr-2" />
+            <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+        </div>
+    </div>
+</div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Index
+
+@model PagedList.IPagedList<ProyectoWEB.Models.BVDH_Models.EstadoChofer>
+@using PagedList.Mvc;
+<link href="~/Content/PagedList.css" rel="stylesheet" />
+
+@{
+    ViewBag.Title = "Estado Chofer";
+}
+
+<h2>Lista de estados por chofer</h2>
+
+<p>
+    @Html.ActionLink("Ingresar estado del chofer", "Create")
+</p>
+
+@using (Html.BeginForm("Index", "EstadoChofers", FormMethod.Get))
+{
+    @Html.TextBox("buscar", ViewBag.filtroActual as string)
+    <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
+}
+
+<table class="table">
+    <tr>
+        <th>
+            @Html.ActionLink("Cédula del chofer", "Index", new { ordenar = ViewBag.cedChoferSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Tipo estado", "Index", new { ordenar = ViewBag.tipoEstadoSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            <label style="color: #4e73df;">Descripción</label>
+        </th>
+
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Chofer.cedChofer)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.tipoEstado)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.descripcion)
+            </td>
+
+            <td>
+                @Html.ActionLink("Editar", "Edit", new { id = item.idEstadoC }) |
+                @Html.ActionLink("Desactivar", "Delete", new { id = item.idEstadoC })
+            </td>
+        </tr>
+    }
+
+</table>
+@Html.ActionLink("Datos Desactivados", "DataDisabled")
+<nav>
+    @Html.PagedListPager(Model, pagina => Url.Action("Index",
+    new { pagina, ordenar = ViewBag.tipoActual, filtroActual = ViewBag.FiltroActual }))
+</nav>
+

@@ -1,0 +1,329 @@
+Controlador
+
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Net.Mail;
+using System.Web;
+using System.Web.Mvc;
+using Microsoft.AspNet.Identity;
+using ProyectoWEB.Models.BVDH_Models;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Chofer")]
+    public class EventualidadsController : Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+
+        // GET: Eventualidads
+        public ActionResult Index()
+        {
+            var eventualidad = db.Eventualidad.Include(e => e.Chofer).Include(e => e.Unidad);
+            return View(eventualidad.ToList());
+        }
+
+        // GET: Eventualidads/Create
+        public ActionResult Create()
+        {
+            string userId = User.Identity.GetUserId();
+            var date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            ViewBag.fechaActual = date;
+            ViewBag.idChofer = new SelectList(db.Chofer.Where(s => s.id == userId), "idChofer", "cedChofer");
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad");
+            return View();
+        }
+
+        // POST: Eventualidads/Create
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create([Bind(Include = "idEventualidad,idUnidad,idChofer,fechaEventualidad,tipodeEventualidad,descripcion")] Eventualidad eventualidad)
+        {
+            var date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            ViewBag.fechaActual = date;
+
+            if (ModelState.IsValid)
+            {
+                db.Eventualidad.Add(eventualidad);
+                db.SaveChanges();
+
+                //Envio de correo
+                try
+                {
+
+                    string emailOrigen = ConfigurationManager.AppSettings["email"];
+                    string emailDestino = "leosgoni18@gmail.com";
+                    string password = ConfigurationManager.AppSettings["password"];
+
+                    var numUnidad = (from u in db.Unidad where u.idUnidad == eventualidad.idUnidad select u.numUnidad).FirstOrDefault();
+                    var cedChofer = (from c in db.Chofer where c.idChofer == eventualidad.idChofer select c.cedChofer).FirstOrDefault();
+
+                    MailMessage mailMessage = new MailMessage(emailOrigen, emailDestino, "BVDH - Reporte eventualidad",
+                       "<h1>Tipo de eventualidad: "+ eventualidad.tipodeEventualidad +"</h1>" +
+                       "<h1>Fecha del suceso: "+  eventualidad.fechaEventualidad+"</h1>" +
+                       "<h1>Unidad involucrada: "+ numUnidad +"</h1>" +
+                       "<h1>Chofer " + cedChofer +"</h1>" + 
+                       "<h1>Breve descripción del suceso: " + eventualidad.descripcion+"</h1>"
+                        );
+
+                    mailMessage.IsBodyHtml = true;
+
+                    SmtpClient smtpClient = new SmtpClient("smtp.gmail.com");
+                    smtpClient.EnableSsl = true;
+                    smtpClient.UseDefaultCredentials = false;
+                    smtpClient.Port = 587;
+                    smtpClient.Credentials = new System.Net.NetworkCredential(emailOrigen, password);
+
+                    smtpClient.Send(mailMessage);
+
+                    smtpClient.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+
+                return View("notice");
+            }
+            else
+            {
+                return View("~/Views/Shared/Error.cshtml");
+            }
+        }
+
+        // GET: Eventualidads/Edit/5
+        public ActionResult Edit(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Eventualidad eventualidad = db.Eventualidad.Find(id);
+            if (eventualidad == null)
+            {
+                return HttpNotFound();
+            }
+            ViewBag.idChofer = new SelectList(db.Chofer, "idChofer", "cedChofer");
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad");
+            return View(eventualidad);
+        }
+
+        // POST: Eventualidads/Edit/5
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Edit([Bind(Include = "idEventualidad,idUnidad,idChofer,fechaEventualidad,tipodeEventualidad,descripcion")] Eventualidad eventualidad)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(eventualidad).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            ViewBag.idChofer = new SelectList(db.Chofer, "idChofer", "cedChofer");
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad");
+            return View(eventualidad);
+        }
+
+        // GET: Eventualidads/Delete/5
+        public ActionResult Delete(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Eventualidad eventualidad = db.Eventualidad.Find(id);
+            if (eventualidad == null)
+            {
+                return HttpNotFound();
+            }
+            return View(eventualidad);
+        }
+
+        // POST: Eventualidads/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            Eventualidad eventualidad = db.Eventualidad.Find(id);
+            db.Eventualidad.Remove(eventualidad);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}
+
+
+
+
+
+***********************************************************************************************************************************************************************
+Vistas
+
+
+  • Create
+
+@model ProyectoWEB.Models.BVDH_Models.Eventualidad
+
+@{
+    ViewBag.Title = "Eventualidades";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+
+<h2>Ingresar eventualidad</h2>
+
+@using (Html.BeginForm()) 
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        <div class="form-group">           
+            <div class="col-md-10">
+                <label>Número Unidad</label>
+                @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cédula del chofer</label>
+                @Html.DropDownList("idChofer", null, htmlAttributes: new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.idChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Fecha del suceso</label>
+                @Html.EditorFor(model => model.fechaEventualidad, new { htmlAttributes = new { @class = "form-control", @Value = ViewBag.fechaActual } })
+                @Html.ValidationMessageFor(model => model.fechaEventualidad, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Tipo de suceso</label>
+                @Html.EditorFor(model => model.tipodeEventualidad, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.tipodeEventualidad, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Breve descripción</label>
+                @Html.EditorFor(model => model.descripcion, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.descripcion, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Registrar" class="btn btn-primary m-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index", "Home")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Index
+
+@model IEnumerable<ProyectoWEB.Models.BVDH_Models.Eventualidad>
+
+@{
+    ViewBag.Title = "Eventualidad";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Lista de eventualidades</h2>
+<br />
+<table class="table">
+    <tr>
+        <th>
+            <label>Número de unidad</label>
+        </th>
+        <th>
+            <label>Tipo de unidad</label>
+        </th>
+        <th>
+            <label>Cédula del chofer</label>
+        </th>
+        <th>
+            <label>Fecha del suceso</label>
+        </th>
+        <th>
+            <label>Tipo del suceso</label>
+        </th>
+        <th>
+            <label>Breve descripción</label>
+        </th>
+        <th></th>
+    </tr>
+
+@foreach (var item in Model) {
+<tr>
+    <td>
+        @Html.DisplayFor(modelItem => item.Unidad.numUnidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.Unidad.tipoUnidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.Chofer.cedChofer)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.fechaEventualidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.tipodeEventualidad)
+    </td>
+    <td>
+        @Html.DisplayFor(modelItem => item.descripcion)
+    </td>
+    <td>
+        @Html.ActionLink("Desactivar", "Delete", new { id = item.idEventualidad })
+    </td>
+</tr>
+}
+
+</table>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• notice
+
+
+@{
+    ViewBag.Title = "Eventualidades";
+    Layout = "~/Views/Shared/_Layout_Chofer.cshtml";
+}
+<h2>Gracias!</h2>
+<h3>Eventualida agregada, se le notificará al administrador lo más temprano posible</h3>

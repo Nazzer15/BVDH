@@ -1,0 +1,702 @@
+Controlador
+
+
+
+using System;
+using System.Configuration;
+using System.Globalization;
+using System.Linq;
+using System.Net.Mail;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using System.Web;
+using System.Web.Mvc;
+using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.Owin;
+using Microsoft.Owin.Security;
+using ProyectoWEB.Models;
+using ProyectoWEB.Models.BVDH_Models;
+
+namespace ProyectoWEB.Controllers
+{
+
+    [Authorize]
+    public class AccountController  Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+        private ApplicationSignInManager _signInManager;
+        private ApplicationUserManager _userManager;
+
+        public AccountController()
+        {
+        }
+
+        public AccountController(ApplicationUserManager userManager, ApplicationSignInManager signInManager )
+        {
+            UserManager = userManager;
+            SignInManager = signInManager;
+        }
+
+        public ApplicationSignInManager SignInManager
+        {
+            get
+            {
+                return _signInManager  HttpContext.GetOwinContext().GetApplicationSignInManager();
+            }
+            private set 
+            { 
+                _signInManager = value; 
+            }
+        }
+
+        public ApplicationUserManager UserManager
+        {
+            get
+            {
+                return _userManager  HttpContext.GetOwinContext().GetUserManagerApplicationUserManager();
+            }
+            private set
+            {
+                _userManager = value;
+            }
+        }
+
+
+        
+         GET AccountLogin
+        [AllowAnonymous]
+        public ActionResult SmartLogin(string returnUrl)
+        {
+            ViewBag.ReturnUrl = returnUrl;
+            return View();
+        }
+
+        
+         POST AccountLogin
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult SmartLogin(LoginViewModel model, string returnUrl)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+             This doesn't count login failures towards account lockout
+             To enable password failures to trigger account lockout, change to shouldLockout true
+            var result = await SignInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, shouldLockout false);
+
+            var consulta = (from c in db.AspNetUsers where c.Email == model.Email select c.estado).FirstOrDefault();
+
+            if (consulta == null)
+            {
+                return RedirectToAction(SmartLogin);
+            }
+
+            switch (result)
+            {
+                case SignInStatus.Success
+                    return RedirectToLocal(returnUrl);
+                case SignInStatus.LockedOut
+                    return View(Lockout);
+                case SignInStatus.RequiresVerification
+                    return RedirectToAction(SendCode, new { ReturnUrl = returnUrl, RememberMe = model.RememberMe });
+                case SignInStatus.Failure
+                default
+                    ModelState.AddModelError(, Invalid login attempt.);
+                    return View(model);
+            }
+        }
+
+        
+         GET AccountLogin
+        [AllowAnonymous]
+        public ActionResult Login(string returnUrl)
+        {
+            ViewBag.ReturnUrl = returnUrl;
+            return View();
+        }
+
+        
+         POST AccountLogin
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult Login(LoginViewModel model, string returnUrl)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+             This doesn't count login failures towards account lockout
+             To enable password failures to trigger account lockout, change to shouldLockout true
+            var result = await SignInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, shouldLockout false);         
+            
+            switch (result)
+            {
+                case SignInStatus.Success
+                    return RedirectToLocal(returnUrl);
+                case SignInStatus.LockedOut
+                    return View(Lockout);
+                case SignInStatus.RequiresVerification
+                    return RedirectToAction(SendCode, new { ReturnUrl = returnUrl, RememberMe = model.RememberMe });
+                case SignInStatus.Failure
+                default
+                    ModelState.AddModelError(, Invalid login attempt.);
+                    return View(model);
+            }
+        }
+
+
+        
+         GET AccountVerifyCode
+        [AllowAnonymous]
+        public async TaskActionResult VerifyCode(string provider, string returnUrl, bool rememberMe)
+        {
+             Require that the user has already logged in via usernamepassword or external login
+            if (!await SignInManager.HasBeenVerifiedAsync())
+            {
+                return View(Error);
+            }
+            return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
+        }
+
+        
+         POST AccountVerifyCode
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult VerifyCode(VerifyCodeViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+             The following code protects for brute force attacks against the two factor codes. 
+             If a user enters incorrect codes for a specified amount of time then the user account 
+             will be locked out for a specified amount of time. 
+             You can configure the account lockout settings in IdentityConfig
+            var result = await SignInManager.TwoFactorSignInAsync(model.Provider, model.Code, isPersistent  model.RememberMe, rememberBrowser model.RememberBrowser);
+            switch (result)
+            {
+                case SignInStatus.Success
+                    return RedirectToLocal(model.ReturnUrl);
+                case SignInStatus.LockedOut
+                    return View(Lockout);
+                case SignInStatus.Failure
+                default
+                    ModelState.AddModelError(, Invalid code.);
+                    return View(model);
+            }
+        }
+
+        private static readonly Random Random = new Random();
+
+        private static string PasswordGenerator(int passwordLength, bool strongPassword)
+        {
+            int seed = Random.Next(1, int.MaxValue);
+            const string allowedChars = ABCDEFGHJKLMNOPQRSTUVWXYZ0123456789;
+            const string allowedChars = abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ0123456789;
+            const string specialCharacters = @!#$%&'()+,-.;=@[]_;
+
+            var chars = new char[passwordLength];
+            var rd = new Random(seed);
+
+            for (var i = 0; i  passwordLength; i++)
+            {
+                 If we are to use special characters
+                if (strongPassword && i % Random.Next(3, passwordLength) == 0)
+                {
+                    chars[i] = specialCharacters[rd.Next(0, specialCharacters.Length)];
+                }
+                else
+                {
+                    chars[i] = allowedChars[rd.Next(0, allowedChars.Length)];
+                }
+            }
+
+            return new string(chars);
+        }
+
+        
+         GET AccountRegister
+        [AllowAnonymous]
+        public ActionResult Register()
+        {
+            ViewBag.password = PasswordGenerator(12, true);
+            
+            return View();
+        }
+
+        
+         POST AccountRegister
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult Register(RegisterViewModel model)
+        {
+            ViewBag.password = PasswordGenerator(12, true);
+            if (ModelState.IsValid)
+            {
+                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+                var result = await UserManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    var currentUser = UserManager.FindByName(user.UserName);
+
+                    var roleresult = UserManager.AddToRole(currentUser.Id, Chofer);
+
+                    return RedirectToAction(Index, Home);
+                }
+                AddErrors(result);
+            }
+
+             If we got this far, something failed, redisplay form
+            return View(model);
+        }
+
+
+        
+         GET AccountConfirmEmail
+        [AllowAnonymous]
+        public async TaskActionResult ConfirmEmail(string userId, string code)
+        {
+            if (userId == null  code == null)
+            {
+                return View(Error);
+            }
+            var result = await UserManager.ConfirmEmailAsync(userId, code);
+            return View(result.Succeeded  ConfirmEmail  Error);
+        }
+
+        
+         GET AccountForgotPassword
+        [AllowAnonymous]
+        public ActionResult ForgotPassword()
+        {
+            return View();
+        }
+
+        
+         POST AccountForgotPassword
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult ForgotPassword(ForgotPasswordViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = await UserManager.FindByNameAsync(model.Email);
+                if (user == null  !(await UserManager.IsEmailConfirmedAsync(user.Id)))
+                {
+                     Don't reveal that the user does not exist or is not confirmed
+                    return View(ForgotPasswordConfirmation);
+                }
+
+                 For more information on how to enable account confirmation and password reset please visit httpsgo.microsoft.comfwlinkLinkID=320771
+                 Send an email with this link
+                 string code = await UserManager.GeneratePasswordResetTokenAsync(user.Id);
+                 var callbackUrl = Url.Action(ResetPassword, Account, new { userId = user.Id, code = code }, protocol Request.Url.Scheme);		
+                 await UserManager.SendEmailAsync(user.Id, Reset Password, Please reset your password by clicking a href= + callbackUrl + herea);
+                 return RedirectToAction(ForgotPasswordConfirmation, Account);
+            }
+
+             If we got this far, something failed, redisplay form
+            return View(model);
+        }
+
+        
+         GET AccountForgotPasswordConfirmation
+        [AllowAnonymous]
+        public ActionResult ForgotPasswordConfirmation()
+        {
+            return View();
+        }
+
+        
+         GET AccountResetPassword
+        [AllowAnonymous]
+        public ActionResult ResetPassword(string code)
+        {
+            return code == null  View(Error)  View();
+        }
+
+        
+         POST AccountResetPassword
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult ResetPassword(ResetPasswordViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+            var user = await UserManager.FindByNameAsync(model.Email);
+            if (user == null)
+            {
+                 Don't reveal that the user does not exist
+                return RedirectToAction(ResetPasswordConfirmation, Account);
+            }
+            var result = await UserManager.ResetPasswordAsync(user.Id, model.Code, model.Password);
+            if (result.Succeeded)
+            {
+                return RedirectToAction(ResetPasswordConfirmation, Account);
+            }
+            AddErrors(result);
+            return View();
+        }
+
+        
+         GET AccountResetPasswordConfirmation
+        [AllowAnonymous]
+        public ActionResult ResetPasswordConfirmation()
+        {
+            return View();
+        }
+
+        
+         POST AccountExternalLogin
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public ActionResult ExternalLogin(string provider, string returnUrl)
+        {
+             Request a redirect to the external login provider
+            return new ChallengeResult(provider, Url.Action(ExternalLoginCallback, Account, new { ReturnUrl = returnUrl }));
+        }
+
+        
+         GET AccountSendCode
+        [AllowAnonymous]
+        public async TaskActionResult SendCode(string returnUrl, bool rememberMe)
+        {
+            var userId = await SignInManager.GetVerifiedUserIdAsync();
+            if (userId == null)
+            {
+                return View(Error);
+            }
+            var userFactors = await UserManager.GetValidTwoFactorProvidersAsync(userId);
+            var factorOptions = userFactors.Select(purpose = new SelectListItem { Text = purpose, Value = purpose }).ToList();
+            return View(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rememberMe });
+        }
+
+        
+         POST AccountSendCode
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult SendCode(SendCodeViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View();
+            }
+
+             Generate the token and send it
+            if (!await SignInManager.SendTwoFactorCodeAsync(model.SelectedProvider))
+            {
+                return View(Error);
+            }
+            return RedirectToAction(VerifyCode, new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
+        }
+
+        
+         GET AccountExternalLoginCallback
+        [AllowAnonymous]
+        public async TaskActionResult ExternalLoginCallback(string returnUrl)
+        {
+            var loginInfo = await AuthenticationManager.GetExternalLoginInfoAsync();
+            if (loginInfo == null)
+            {
+                return RedirectToAction(Login);
+            }
+
+             Sign in the user with this external login provider if the user already has a login
+            var result = await SignInManager.ExternalSignInAsync(loginInfo, isPersistent false);
+            switch (result)
+            {
+                case SignInStatus.Success
+                    return RedirectToLocal(returnUrl);
+                case SignInStatus.LockedOut
+                    return View(Lockout);
+                case SignInStatus.RequiresVerification
+                    return RedirectToAction(SendCode, new { ReturnUrl = returnUrl, RememberMe = false });
+                case SignInStatus.Failure
+                default
+                     If the user does not have an account, then prompt the user to create an account
+                    ViewBag.ReturnUrl = returnUrl;
+                    ViewBag.LoginProvider = loginInfo.Login.LoginProvider;
+                    return View(ExternalLoginConfirmation, new ExternalLoginConfirmationViewModel { Email = loginInfo.Email });
+            }
+        }
+
+        
+         POST AccountExternalLoginConfirmation
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async TaskActionResult ExternalLoginConfirmation(ExternalLoginConfirmationViewModel model, string returnUrl)
+        {
+            if (User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction(Index, Manage);
+            }
+
+            if (ModelState.IsValid)
+            {
+                 Get the information about the user from the external login provider
+                var info = await AuthenticationManager.GetExternalLoginInfoAsync();
+                if (info == null)
+                {
+                    return View(ExternalLoginFailure);
+                }
+                var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+                var result = await UserManager.CreateAsync(user);
+                if (result.Succeeded)
+                {
+                    result = await UserManager.AddLoginAsync(user.Id, info.Login);
+                    if (result.Succeeded)
+                    {
+                        await SignInManager.SignInAsync(user, isPersistent false, rememberBrowser false);
+                        return RedirectToLocal(returnUrl);
+                    }
+                }
+                AddErrors(result);
+            }
+
+            ViewBag.ReturnUrl = returnUrl;
+            return View(model);
+        }
+
+        
+         POST AccountLogOff
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult LogOff()
+        {
+            AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
+            return RedirectToAction(SmartLogin, Account);
+        }
+
+        
+         GET AccountExternalLoginFailure
+        [AllowAnonymous]
+        public ActionResult ExternalLoginFailure()
+        {
+            return View();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_userManager != null)
+                {
+                    _userManager.Dispose();
+                    _userManager = null;
+                }
+
+                if (_signInManager != null)
+                {
+                    _signInManager.Dispose();
+                    _signInManager = null;
+                }
+            }
+
+            base.Dispose(disposing);
+        }
+
+        #region Helpers
+         Used for XSRF protection when adding external logins
+        private const string XsrfKey = XsrfId;
+
+        private IAuthenticationManager AuthenticationManager
+        {
+            get
+            {
+                return HttpContext.GetOwinContext().Authentication;
+            }
+        }
+
+        private void AddErrors(IdentityResult result)
+        {
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError(, error);
+            }
+        }
+
+        private ActionResult RedirectToLocal(string returnUrl)
+        {
+            if (Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+            return RedirectToAction(Index, Home);
+        }
+
+        internal class ChallengeResult  HttpUnauthorizedResult
+        {
+            public ChallengeResult(string provider, string redirectUri)
+                 this(provider, redirectUri, null)
+            {
+            }
+
+            public ChallengeResult(string provider, string redirectUri, string userId)
+            {
+                LoginProvider = provider;
+                RedirectUri = redirectUri;
+                UserId = userId;
+            }
+
+            public string LoginProvider { get; set; }
+            public string RedirectUri { get; set; }
+            public string UserId { get; set; }
+
+            public override void ExecuteResult(ControllerContext context)
+            {
+                var properties = new AuthenticationProperties { RedirectUri = RedirectUri };
+                if (UserId != null)
+                {
+                    properties.Dictionary[XsrfKey] = UserId;
+                }
+                context.HttpContext.GetOwinContext().Authentication.Challenge(properties, LoginProvider);
+            }
+
+
+            
+        }
+        #endregion
+    }
+}
+
+***********************************************************************************************************************************************************************
+Vistas
+
+• SmartLogin 
+
+@using ProyectoWEB.Models
+@model LoginViewModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>BVDH</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="keywords" content="Smart Login Form Responsive Widget,Login form widgets, Sign up Web forms , Login signup Responsive web form,Flat Pricing table,Flat Drop downs,Registration Forms,News letter Forms,Elements" />
+    <script type="application/x-javascript">
+         addEventListener("load", function() { setTimeout(hideURLbar, 0); }, false);
+        function hideURLbar(){ window.scrollTo(0,1); } </script>
+    <link rel="icon" type="image/png" href="~/Content/img/Fuerza_Publica.png">
+
+    <link href="~/smartlogin/css/style.css" rel="stylesheet" type="text/css" media="all">
+
+    <link href="//fonts.googleapis.com/css?family=Roboto+Slab:100,300,400,700Roboto:100,100i,300,300i,400,400i,500,500i,700,700i,900,900iSlabo+27px&subset=cyrillic,cyrillic-ext,greek,greek-ext,latin-ext,vietnamese" rel="stylesheet">
+
+</head>
+<body>
+    
+
+    <div class="agileheader">
+        <h1>BVDH</h1>
+        <img src="~/Content/img/Fuerza_Publica.png" style="width: 120px; height: 150px;" />
+    </div>
+
+    <div class="main-w3l">
+        <div class="w3layouts-main">
+            <h2 class="titulo">Iniciar Sesión</h2>
+            @using (Html.BeginForm("SmartLogin", "Account", new { ReturnUrl = ViewBag.ReturnUrl }, FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+            {
+                @Html.AntiForgeryToken()
+                @Html.ValidationSummary(true, "", new { @style = "color: red" })
+                <div class="form-group">
+                    <div class="col-md-10">
+                        @Html.TextBoxFor(m => m.Email, new { @class = "form-control", @type = "email", @placeholder = "Email" })
+                        @Html.ValidationMessageFor(m => m.Email, "", new { @class = "text-danger" })
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-md-10">
+                        @Html.PasswordFor(m => m.Password, new { @class = "form-control", @placeholder = "Contraseña" })
+                        @Html.ValidationMessageFor(m => m.Password, "", new { @class = "text-danger" })
+                    </div>
+                </div>
+                <input type="submit" value="Ingresar" name="login" class="btn-primary">
+            }
+
+        </div>
+    </div>
+
+    <!--footer-->
+    <div class="footer-w3l">
+        <p style="text-align: center; color: #ffffff">&copy; BVDH. Todos los derechos reservados  </p>
+    </div>
+    <!--//footer-->
+
+</body>
+</html>
+
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+
+• Register
+
+@model ProyectoWEB.Models.RegisterViewModel
+@{
+    ViewBag.Title = "Registrar cuenta";
+}
+    <h2>Registrar nueva cuenta</h2>
+    <h1>@ViewBag.password</h1>
+
+@using (Html.BeginForm("Register", "Account", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+{
+    @Html.AntiForgeryToken()
+    <hr />
+    @Html.ValidationSummary("", new { @class = "text-danger" })
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Correo electróncio</label>
+            @Html.TextBoxFor(m => m.Email, new { @class = "form-control" })
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Contraseña</label>
+            @Html.PasswordFor(m => m.Password, new { @class = "form-control", @Value = ViewBag.password })
+        </div>
+    </div>
+    <div class="form-group">
+        <div class="col-md-10">
+            <label>Confirmar contraseña</label>
+            @Html.PasswordFor(m => m.ConfirmPassword, new { @class = "form-control", @Value = ViewBag.password })
+        </div>
+    </div>
+
+    <br />
+
+    <div class="form-group">
+        <div class="col-md-offset-2 col-md-10">
+            <input type="submit" class="btn btn-primary" value="Registrar" />
+        </div>
+    </div>
+}
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+}

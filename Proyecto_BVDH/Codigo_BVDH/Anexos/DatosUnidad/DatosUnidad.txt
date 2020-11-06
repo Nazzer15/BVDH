@@ -1,0 +1,463 @@
+Controlador
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Web;
+using System.Web.Mvc;
+using PagedList;
+using ProyectoWEB.Models.BVDH_Models;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Admin")]
+    public class DatosUnidadsController : Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+
+        // GET: DatosUnidads
+        public ActionResult Index(string ordenar, string filtroActual, string buscar, int? pagina)
+        {
+            ViewBag.numUnidadSortParm = String.IsNullOrEmpty(ordenar) ? "numUnidad_desc" : "";
+            ViewBag.kilometrajeSortParm = ordenar == "kilometraje" ? "kilometraje_desc" : "kilometraje";
+            ViewBag.litrosgasolinaSortParm = ordenar == "litrosGasolina" ? "litrosGasolina_desc" : "litrosGasolina";
+            ViewBag.rendimientoSortParm = ordenar == "rendimiento" ? "rendimiento_desc" : "rendimiento";
+
+
+            if (buscar != null)
+            {
+                pagina = 1;
+            }
+            else
+            {
+                buscar = filtroActual;
+            }
+
+            ViewBag.filtroActual = buscar;
+
+            var datosUnidad = from s in db.DatosUnidad where s.estado == null select s;
+
+            if (!String.IsNullOrEmpty(buscar))
+            {
+                datosUnidad = datosUnidad.Where(s => s.Unidad.numUnidad.ToString().Contains(buscar) ||
+                              s.kilometrajeFinal.ToString().Contains(buscar) || s.litrosGasolina.ToString().Contains(buscar) ||
+                              s.rendimiento.ToString().Contains(buscar));
+            }
+
+            switch (ordenar)
+            {
+                case "numUnidad_desc":
+                    datosUnidad = datosUnidad.OrderByDescending(s => s.Unidad.numUnidad);
+                    break;
+
+                case "kilometraje":
+                    datosUnidad = datosUnidad.OrderBy(s => s.kilometrajeFinal);
+                    break;
+
+                case "kilometraje_desc":
+                    datosUnidad = datosUnidad.OrderByDescending(s => s.kilometrajeFinal);
+                    break;
+
+                case "litrosGasolina":
+                    datosUnidad = datosUnidad.OrderBy(s => s.litrosGasolina);
+                    break;
+
+                case "litrosGasolina_desc":
+                    datosUnidad = datosUnidad.OrderByDescending(s => s.litrosGasolina);
+                    break;
+
+                case "rendimiento":
+                    datosUnidad = datosUnidad.OrderBy(s => s.rendimiento);
+                    break;
+
+                case "rendimiento_desc":
+                    datosUnidad = datosUnidad.OrderByDescending(s => s.rendimiento);
+                    break;
+                default:
+                    datosUnidad = datosUnidad.OrderBy(s => s.Unidad.numUnidad);
+                    break;
+            }
+
+            int extPagina = 6;
+            int numPagina = (pagina ?? 1);
+            return View(datosUnidad.ToPagedList(numPagina, extPagina));
+        }
+
+        // GET: DatosUnidads/Create
+        public ActionResult Create()
+        {
+            ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" ||
+            s.estado == "En uso"), "idUnidad", "numUnidad");
+            return View();
+        }
+
+        // POST: DatosUnidads/Create
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create([Bind(Include = "idDatosU,idUnidad,kilometrajeInicial,kilometrajeFinal,litrosGasolina,rendimiento,estado")] DatosUnidad datosUnidad)
+        {
+            if (db.DatosUnidad.Any(s => s.idUnidad == datosUnidad.idUnidad))
+            {
+                ModelState.AddModelError("idUnidad", "Número de unidad ya registrado");
+            }
+            if (ModelState.IsValid)
+            {
+                db.DatosUnidad.Add(datosUnidad);
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+
+            ViewBag.idUnidad = new SelectList(db.Unidad.Where(s => s.estado == "Disponible" ||
+            s.estado == "En uso"), "idUnidad", "numUnidad");
+            return View(datosUnidad);
+        }
+
+        // GET: DatosUnidads/Edit/5
+        public ActionResult Edit(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            DatosUnidad datosUnidad = db.DatosUnidad.Find(id);
+            if (datosUnidad == null)
+            {
+                return HttpNotFound();
+            }
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad", datosUnidad.idUnidad);
+            return View(datosUnidad);
+        }
+
+        // POST: DatosUnidads/Edit/5
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Edit([Bind(Include = "idDatosU,idUnidad,kilometrajeInicial,kilometrajeFinal,litrosGasolina,rendimiento,estado")] DatosUnidad datosUnidad)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Entry(datosUnidad).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            ViewBag.idUnidad = new SelectList(db.Unidad, "idUnidad", "numUnidad", datosUnidad.idUnidad);
+            return View(datosUnidad);
+        }
+
+
+        public ActionResult DataDisabled()
+        {
+            var datosDesactivados = from s in db.DatosUnidad where s.estado == "Inactivo" select s;
+            return View(datosDesactivados.ToList());
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}
+
+
+
+
+***********************************************************************************************************************************************************************
+  • Create
+
+@model ProyectoWEB.Models.BVDH_Models.DatosUnidad
+
+@{
+    ViewBag.Title = "Datos unidad";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Editar estado</h2>
+
+@using (Html.BeginForm()) 
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Número Unidad</label>
+                @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control"})
+                @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Kilometraje</label>
+                @Html.EditorFor(model => model.kilometrajeInicial, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.kilometrajeInicial, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.kilometrajeFinal, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.kilometrajeFinal, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.kilometrajeFinal, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Capacidad combustible</label>
+                @Html.EditorFor(model => model.litrosGasolina, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.litrosGasolina, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+
+        <br />
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Guardar" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+•  DataDisabled
+
+@model IEnumerable<ProyectoWEB.Models.BVDH_Models.DatosUnidad>
+
+@{
+    ViewBag.Title = "DataDisabled";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Unidades Desactivadas</h2>
+<br />
+
+<table class="table">
+    <tr>
+        <th>
+            Número Unidad
+        </th>
+        <th>
+            Kilometraje
+        </th>
+        <th>
+            Litros de gasolina
+        </th>
+        <th>
+            Rendimiento
+        </th>
+        <th>
+            Estado
+        </th>
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Unidad.numUnidad)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.kilometrajeFinal)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.litrosGasolina)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.rendimiento)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.estado)
+            </td>
+        </tr>
+    }
+
+</table>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Edit
+
+@model ProyectoWEB.Models.BVDH_Models.DatosUnidad
+
+@{
+    ViewBag.Title = "Datos Unidad";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Editar estado</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        @Html.HiddenFor(model => model.idDatosU)
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Número Unidad</label>
+                @Html.HiddenFor(m => m.idUnidad)
+                @Html.DropDownList("idUnidad", null, htmlAttributes: new { @class = "form-control", @disabled = "disabled" })
+                @Html.ValidationMessageFor(model => model.idUnidad, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Kilometraje inicial</label>
+                @Html.EditorFor(model => model.kilometrajeInicial, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.kilometrajeInicial, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Kilometraje inicial</label>
+                @Html.EditorFor(model => model.kilometrajeFinal, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.kilometrajeFinal, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Capacidad combustible</label>
+                @Html.EditorFor(model => model.litrosGasolina, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.litrosGasolina, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            @Html.LabelFor(model => model.rendimiento, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.rendimiento, new { htmlAttributes = new { @class = "form-control" , @readonly = "readonly" } })
+                @Html.ValidationMessageFor(model => model.rendimiento, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        @*<div class="form-group">
+            @Html.LabelFor(model => model.estado, htmlAttributes: new { @class = "control-label col-md-2" })
+            <div class="col-md-10">
+                @Html.EditorFor(model => model.estado, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.estado, "", new { @class = "text-danger" })
+            </div>
+        </div>*@
+        <br />
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Guardar" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+• Index
+
+@model PagedList.IPagedList<ProyectoWEB.Models.BVDH_Models.DatosUnidad>
+@using PagedList.Mvc;
+
+<link href="~/Content/PagedList.css" rel="stylesheet" />
+@{
+    ViewBag.Title = "Datos Unidad";
+}
+
+
+
+<h2>Lista de estados por unidad</h2>
+
+<p>
+    @Html.ActionLink("Ingresar nuevo dato", "Create")
+</p>
+<br />
+@using (Html.BeginForm("Index", "DatosUnidads", FormMethod.Get))
+{
+    @Html.TextBox("buscar", ViewBag.filtroActual as string)
+    <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
+}
+<br />
+<table class="table">
+    <tr>
+        <th>
+            @Html.ActionLink("Numero unidad", "Index", new { ordenar = ViewBag.numUnidadSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Kilometraje", "Index", new { ordenar = ViewBag.kilometrajeSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Litros de gasolina", "Index", new { ordenar = ViewBag.litrosgasolinaSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Rendimiento", "Index", new { ordenar = ViewBag.rendimientoSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+
+
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Unidad.numUnidad)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.kilometrajeFinal)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.litrosGasolina)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.rendimiento)
+            </td>
+
+            <td>
+                @Html.ActionLink("Editar", "Edit", new { id = item.idDatosU })
+            </td>
+        </tr>
+    }
+
+</table>
+<nav>
+    @Html.PagedListPager(Model, pagina => Url.Action("Index",
+    new { pagina, ordenar = ViewBag.tipoActual, filtroActual = ViewBag.FiltroActual }))
+</nav>
+ 

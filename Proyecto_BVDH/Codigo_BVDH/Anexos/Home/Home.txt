@@ -1,0 +1,35 @@
+Controlador 
+
+using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.EntityFramework;
+using ProyectoWEB.Models;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+
+namespace ProyectoWEB.Controllers
+{
+    public class HomeController : Controller
+    {
+        [Authorize]
+        public ActionResult Index()
+        {          
+            return View();
+        }
+
+
+    }
+}
+
+***********************************************************************************************************************************************************************
+
+Vistas
+
+• Index
+
+@{
+    ViewBag.Title = "Bienvenido";
+}
+

@@ -1,0 +1,202 @@
+Controlador
+• Bitacora
+
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Web;
+using System.Web.Mvc;
+using PagedList;
+using ProyectoWEB.Models.BVDH_Models;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Admin")]
+    public class BitacoraController : Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+
+        // GET: Bitacora
+        public ActionResult Index(string ordenar, string buscar, string filtroActual, int? pagina)
+        {
+            ViewBag.idUnidadSortParm = String.IsNullOrEmpty(ordenar) ? "idUnidad_desc" : "";
+            ViewBag.idChoferSortParm = ordenar == "idChofer" ? "idChofer_desc" : "idChofer";
+            ViewBag.tipoUnidadSortParm = ordenar == "tipoUnidad" ? "tipoUnidad_desc" : "tipoUnidad";
+            ViewBag.fechaHoraSortParm = ordenar == "fechaHora" ? "fechaHora_desc" : "fechaHora";
+            ViewBag.fechaHoraLlegadaSortParm = ordenar == "fechaHoraLlegada" ? "fechaHoraLlegada_desc" : "fechaHoraLlegada";
+            
+            if(buscar != null)
+            {
+                pagina = 1;
+            }
+            else
+            {
+                buscar = filtroActual;
+            }
+            ViewBag.filtroActual = buscar;
+
+            var bitacora = from b in db.Bitacora_historica select b;
+
+            if (!String.IsNullOrEmpty(buscar))
+            {
+                bitacora = bitacora.Where(b => b.Unidad.numUnidad.ToString().Contains(buscar) ||
+                b.Chofer.cedChofer.ToString().Contains(buscar) ||
+                b.Unidad.tipoUnidad.ToString().Contains(buscar) ||
+                b.fechaHora.ToString().Contains(buscar) ||
+                b.fechaHoraLlegada.ToString().Contains(buscar)
+                );
+            }
+            switch (ordenar)
+            {
+                case "idUnidad_desc":
+                    bitacora = bitacora.OrderByDescending(b => b.Unidad.numUnidad);
+                    break;
+                case "idChofer":
+                    bitacora = bitacora.OrderBy(b => b.Chofer.cedChofer);
+                    break;
+                case "idChofer_desc":
+                    bitacora = bitacora.OrderByDescending(b => b.Chofer.cedChofer);
+                    break;
+                case "tipoUnidad":
+                    bitacora = bitacora.OrderBy(b => b.Unidad.tipoUnidad);
+                    break;
+                case "tipoUnidad_desc":
+                    bitacora = bitacora.OrderByDescending(b => b.Unidad.tipoUnidad);
+                    break;
+                case "fechaHora":
+                    bitacora = bitacora.OrderBy(b => b.fechaHora);
+                    break;
+                case "fechaHora_desc":
+                    bitacora = bitacora.OrderByDescending(b => b.fechaHora);
+                    break;
+                case "fechaHoraLlegada":
+                    bitacora = bitacora.OrderBy(b => b.fechaHoraLlegada);
+                    break;
+                case "fechaHoraLlegada_desc":
+                    bitacora = bitacora.OrderByDescending(b => b.fechaHoraLlegada);
+                    break;
+                default:
+                    bitacora = bitacora.OrderBy(b => b.Unidad.idUnidad);
+                    break;
+            }
+            int extPagina = 5;
+            int numPagina = (pagina ?? 1);
+            return View(bitacora.ToPagedList(numPagina, extPagina));
+
+        } 
+       
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}
+
+
+
+
+***********************************************************************************************************************************************************************
+Vistas
+
+ • Index
+
+
+@model PagedList.IPagedList<ProyectoWEB.Models.BVDH_Models.Bitacora_historica>
+@using PagedList.Mvc;
+<link href="~/Content/PagedList.css" rel="stylesheet" />
+@{
+    ViewBag.Title = "Bitácora";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Entrada y salida de unidades</h2>
+<br />
+
+@using (Html.BeginForm("Index", "Bitacora", FormMethod.Get))
+{
+    <p>
+        @Html.TextBox("buscar", ViewBag.filtroActual as string)
+        <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
+    </p>
+}
+
+<table class="table">
+    <tr>
+        <th>
+            @Html.ActionLink("Cédula Chofer", "Index", new
+       {
+           ordenar = ViewBag.idChoferSortParm,
+           filtroActual = ViewBag.FiltroActual
+       })
+        </th>
+        <th>
+            @Html.ActionLink("Número Unidad", "Index", new
+  {
+      ordenar = ViewBag.idUnidadSortParm,
+      filtroActual = ViewBag.FiltroActual
+  })
+        </th>
+        <th>
+            @Html.ActionLink("Tipo de unidad", "Index", new
+  {
+      ordenar = ViewBag.tipoUnidadSortParm,
+      filtroActual = ViewBag.FiltroActual
+  })
+        </th>
+        <th>
+            @Html.ActionLink("Hora de salida", "Index", new
+{
+ordenar = ViewBag.fechaHoraSortParm,
+filtroActual = ViewBag.FiltroActual
+})
+        </th>
+        <th>
+            @Html.ActionLink("Hora de entrada", "Index", new
+{
+ordenar = ViewBag.fechaHoraLlegadaSortParm,
+filtroActual = ViewBag.FiltroActual
+})
+        </th>
+        <th>
+            <label>Motivo de uso</label>
+        </th>
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Chofer.cedChofer)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Unidad.numUnidad)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Unidad.tipoUnidad)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.fechaHora)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.fechaHoraLlegada)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.motivoUso)
+            </td>
+            <td></td>
+        </tr>
+    }
+
+</table>
+<nav>
+    @Html.PagedListPager(Model, pagina => Url.Action("Index",
+    new { pagina, ordenar = ViewBag.tipoActual, filtroActual = ViewBag.FiltroActual }))
+</nav>

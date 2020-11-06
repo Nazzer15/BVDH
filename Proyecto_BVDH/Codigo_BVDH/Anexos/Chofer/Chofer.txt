@@ -1,0 +1,736 @@
+Controlador
+
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data;
+using System.Data.Entity;
+using System.Linq;
+using System.Net;
+using System.Net.Mail;
+using System.Web;
+using System.Web.Mvc;
+using PagedList;
+using ProyectoWEB.Models.BVDH_Models;
+
+namespace ProyectoWEB.Controllers
+{
+    [Authorize(Roles = "Admin")]
+    public class ChofersController : Controller
+    {
+        private BVDH_Entities db = new BVDH_Entities();
+
+        // GET: Chofers
+        public ActionResult Index(string ordenar, string buscar, string filtroActual, int? pagina)
+        {
+            ViewBag.cedChoferSortParm = String.IsNullOrEmpty(ordenar) ? "cedChofer_desc" : "";
+            ViewBag.nombreChoferSortParm = ordenar == "nombreChofer" ? "nombreChofer_desc" : "nombreChofer";
+            ViewBag.tipoLicenciaSortParm = ordenar == "tipoLicencia" ? "tipoLicencia_desc" : "tipoLicencia";
+            ViewBag.fechaVencLicSortParm = ordenar == "fechaVencLic" ? "fechaVencLic_desc" : "fechaVencLic";
+            ViewBag.cuentaSortParm = ordenar == "cuenta" ? "cuenta_desc" : "cuenta";
+            if (buscar != null)
+            {
+                pagina = 1;
+            }
+            else
+            {
+                buscar = filtroActual;
+            }
+            ViewBag.filtroActual = buscar;
+            var chofer = from s in db.Chofer
+                         where s.estado == null
+                         select s;
+            if (!String.IsNullOrEmpty(buscar))
+            {
+                chofer = chofer.Where(s => s.cedChofer.ToString().Contains(buscar) ||
+                s.nombreChofer.Contains(buscar) || s.tipoLicencia.ToString().Contains(buscar) ||
+                s.fechaVencLic.ToString().Contains(buscar) || s.AspNetUsers.Email.Contains(buscar));
+            }
+            switch (ordenar)
+            {
+                case "cedChofer_desc":
+                    chofer = chofer.OrderByDescending(s => s.cedChofer);
+                    break;
+                case "nombreChofer":
+                    chofer = chofer.OrderBy(s => s.nombreChofer);
+                    break;
+                case "nombreChofer_desc":
+                    chofer = chofer.OrderByDescending(s => s.nombreChofer);
+                    break;
+                case "tipoLicencia":
+                    chofer = chofer.OrderBy(s => s.tipoLicencia);
+                    break;
+                case "tipoLicencia_desc":
+                    chofer = chofer.OrderByDescending(s => s.tipoLicencia);
+                    break;
+                case "fechaVencLic":
+                    chofer = chofer.OrderBy(s => s.fechaVencLic);
+                    break;
+                case "fechaVencLic_desc":
+                    chofer = chofer.OrderByDescending(s => s.fechaVencLic);
+                    break;
+                case "cuenta":
+                    chofer = chofer.OrderBy(s => s.AspNetUsers.Email);
+                    break;
+                case "cuenta_desc":
+                    chofer = chofer.OrderByDescending(s => s.AspNetUsers.Email);
+                    break;
+                default:
+                    chofer = chofer.OrderBy(s => s.cedChofer);
+                    break;
+            }
+
+            int extPagina = 5;
+            int numPagina = (pagina ?? 1);
+            return View(chofer.ToPagedList(numPagina, extPagina));
+        }
+
+        // GET: Chofers/Create
+        public ActionResult Create()
+        {
+            ViewBag.id = new SelectList(db.AspNetUsers.Where(s => s.estado == null), "Id", "Email");
+            return View();
+        }
+
+        // POST: Chofers/Create
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create([Bind(Include = "idChofer,cedChofer,nombreChofer,tipoLicencia,fechaVencLic,estado,id")] Chofer chofer)
+        {
+            if (db.Chofer.Any(x => x.cedChofer == chofer.cedChofer))
+            {
+                ModelState.AddModelError("cedChofer", "La cédula registrada ya existe");
+            }
+            if (ModelState.IsValid)
+            {
+                db.Chofer.Add(chofer);
+                AspNetUsers aspNetUsers = db.AspNetUsers.Find(chofer.id);
+                aspNetUsers.estado = "En uso";
+                db.Entry(aspNetUsers).State = EntityState.Modified;
+                db.SaveChanges();
+
+                //Envio de correo
+                try
+                {
+                    var userEmail = (from a in db.AspNetUsers where a.Id == chofer.id select a.Email).FirstOrDefault();
+                    var userPassword = (from a in db.AspNetUsers where a.Id == chofer.id select a.PasswordHash).FirstOrDefault();
+
+                    string emailOrigen = ConfigurationManager.AppSettings["email"];
+                    string emailDestino = userEmail;
+                    string password = ConfigurationManager.AppSettings["password"];
+
+                    MailMessage mailMessage = new MailMessage(emailOrigen, emailDestino, "BVDH - Asignación de cuenta",
+                        "<h2>Estimado usuario<h2>" +
+                        "<h2>Su cuenta asignada es: " + userEmail + "</h2>" +
+                        "<h2>Su contraseña es: " + userPassword + "</h2>");
+
+                    mailMessage.IsBodyHtml = true;
+
+                    SmtpClient smtpClient = new SmtpClient("smtp.gmail.com");
+                    smtpClient.EnableSsl = true;
+                    smtpClient.UseDefaultCredentials = false;
+                    smtpClient.Port = 587;
+                    smtpClient.Credentials = new System.Net.NetworkCredential(emailOrigen, password);
+
+                    smtpClient.Send(mailMessage);
+
+                    smtpClient.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+
+            }
+            else
+            {
+                return View("~/Views/Shared/Error.cshtml");
+            }
+
+            return RedirectToAction("Index");
+ 
+        }
+
+        // GET: Chofers/Edit/5
+        public ActionResult Edit(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Chofer chofer = db.Chofer.Find(id);
+            if (chofer == null)
+            {
+                return HttpNotFound();
+            }
+
+            var currentEmail = (from a in db.AspNetUsers where a.Id == chofer.id select a.Id).FirstOrDefault();
+            AspNetUsers aspNetUsers = db.AspNetUsers.Find(currentEmail);
+            aspNetUsers.estado = null;
+            db.Entry(aspNetUsers).State = EntityState.Modified;
+            db.SaveChanges();
+
+            ViewBag.id = new SelectList(db.AspNetUsers.Where(s => s.estado == null), "Id", "Email");
+            return View(chofer);
+        }
+
+        // POST: Chofers/Edit/5
+        // Para protegerse de ataques de publicación excesiva, habilite las propiedades específicas a las que quiere enlazarse. Para obtener 
+        // más detalles, vea https://go.microsoft.com/fwlink/?LinkId=317598.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Edit([Bind(Include = "idChofer,cedChofer,nombreChofer,tipoLicencia,fechaVencLic,estado,id")] Chofer chofer)
+        {         
+            if (ModelState.IsValid)
+            {
+                AspNetUsers aspNetUsers = db.AspNetUsers.Find(chofer.id);
+                db.Entry(chofer).State = EntityState.Modified;
+                aspNetUsers.estado = "En uso";
+                db.Entry(aspNetUsers).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            ViewBag.id = new SelectList(db.AspNetUsers.Where(s => s.estado == null), "Id", "Email");
+            return View(chofer);
+        }
+
+        // GET: Chofers/Delete/5
+        public ActionResult Delete(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Chofer chofer = db.Chofer.Find(id);
+            if (chofer == null)
+            {
+                return HttpNotFound();
+            }
+
+            return View(chofer);
+        }
+
+        // POST: Chofers/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public ActionResult DeleteConfirmed(int id)
+        {
+            try
+            {
+                Chofer chofer = db.Chofer.Find(id);
+                AspNetUsers aspNetUsers = db.AspNetUsers.Find(chofer.id);
+                aspNetUsers.estado = null;
+                db.Entry(aspNetUsers).State = EntityState.Modified;
+                chofer.estado = "Inactivo";
+                //chofer.id = "Cuenta no asignada";
+                db.Entry(chofer).State = EntityState.Modified;
+                db.SaveChanges();
+                return RedirectToAction("Index");
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            
+        }
+
+        public ActionResult DataDisabled()
+        {
+            var datosDesactivados = from s in db.Chofer where s.estado == "Inactivo" select s;
+            return View(datosDesactivados.ToList());
+        }
+
+        // GET: Chofers/Activate/5
+        public ActionResult Activate(int? id)
+        {
+            if (id == null)
+            {
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+            Chofer chofer = db.Chofer.Find(id);
+            if (chofer == null)
+            {
+                return HttpNotFound();
+            }
+            return View(chofer);
+        }
+
+        // POST: Chofers/Activate/5
+        [HttpPost, ActionName("Activate")]
+        [ValidateAntiForgeryToken]
+        public ActionResult ActivateConfirmed(int id)
+        {
+            Chofer chofer = db.Chofer.Find(id);
+            chofer.estado = null;
+            db.Entry(chofer).State = EntityState.Modified;
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                db.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+    }
+}
+
+
+
+***********************************************************************************************************************************************************************
+Vistas
+
+  • Activate
+
+@model ProyectoWEB.Models.BVDH_Models.Chofer
+
+@{
+    ViewBag.Title = "Activate";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Activate</h2>
+
+<h3>¿Está seguro de activar el chofer @Html.DisplayFor(model => model.cedChofer)?</h3>
+<div>
+    <hr />
+    <dl class="dl-horizontal">
+        <dt>
+            @Html.DisplayNameFor(model => model.cedChofer)
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.cedChofer)
+        </dd>
+
+        <dt>
+            @Html.DisplayNameFor(model => model.nombreChofer)
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.nombreChofer)
+        </dd>
+
+        <dt>
+            @Html.DisplayNameFor(model => model.tipoLicencia)
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.tipoLicencia)
+        </dd>
+
+        <dt>
+            @Html.DisplayNameFor(model => model.fechaVencLic)
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.fechaVencLic)
+        </dd>
+
+        <dt>
+            @Html.DisplayNameFor(model => model.estado)
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.estado)
+        </dd>
+
+        <dt>
+            @Html.DisplayNameFor(model => model.AspNetUsers.Email)
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.AspNetUsers.Email)
+        </dd>
+
+    </dl>
+
+    @using (Html.BeginForm()) {
+        @Html.AntiForgeryToken()
+
+<div class="form-actions no-color">
+    <input type="submit" value="Activar" class="btn btn-primary mr-2" />
+    <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+</div>
+    }
+</div>
+
+
+***********************************************************************************************************************************************************************
+
+
+• Create
+
+@model ProyectoWEB.Models.BVDH_Models.Chofer
+
+@{
+    ViewBag.Title = "Chofer";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Registrar nuevo chofer</h2>
+
+@using (Html.BeginForm()) 
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cédula del chofer</label>
+                @Html.EditorFor(model => model.cedChofer, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.cedChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Nombre</label>
+                @Html.EditorFor(model => model.nombreChofer, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.nombreChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Licencia</label>
+                @Html.EditorFor(model => model.tipoLicencia, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.tipoLicencia, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Vencimiento de licencia</label>
+                @Html.EditorFor(model => model.fechaVencLic, new { htmlAttributes = new { @class = "form-control" , @type = "date" } })
+                @Html.ValidationMessageFor(model => model.fechaVencLic, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cuenta</label>
+                @Html.DropDownList("id", null, htmlAttributes: new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.id, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Registrar" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• DataDisabled
+
+@model ProyectoWEB.Models.BVDH_Models.Chofer
+
+@{
+    ViewBag.Title = "Chofer";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Registrar nuevo chofer</h2>
+
+@using (Html.BeginForm()) 
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cédula del chofer</label>
+                @Html.EditorFor(model => model.cedChofer, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.cedChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Nombre</label>
+                @Html.EditorFor(model => model.nombreChofer, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.nombreChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Licencia</label>
+                @Html.EditorFor(model => model.tipoLicencia, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.tipoLicencia, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Vencimiento de licencia</label>
+                @Html.EditorFor(model => model.fechaVencLic, new { htmlAttributes = new { @class = "form-control" , @type = "date" } })
+                @Html.ValidationMessageFor(model => model.fechaVencLic, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cuenta</label>
+                @Html.DropDownList("id", null, htmlAttributes: new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.id, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Registrar" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+
+***********************************************************************************************************************************************************************
+
+
+• Delete
+
+@model ProyectoWEB.Models.BVDH_Models.Chofer
+
+@{
+    ViewBag.Title = "Delete";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Desactivar chofer</h2>
+<br />
+<h3>¿Está seguro de desactivar el chofer @Html.DisplayFor(model => model.cedChofer)?</h3>
+<div>
+    <hr />
+    <dl class="dl-horizontal">
+        <dt>
+            <label>Cédula del chofer</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.cedChofer)
+        </dd>
+
+        <dt>
+            <label>Nombre</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.nombreChofer)
+        </dd>
+
+        <dt>
+            <label>Licencia</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.tipoLicencia)
+        </dd>
+
+        <dt>
+            <label>Vencimiento de licencia</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.fechaVencLic)
+        </dd>
+
+        <dt>
+            <label>Cuenta</label>
+        </dt>
+
+        <dd>
+            @Html.DisplayFor(model => model.AspNetUsers.Email)
+        </dd>
+
+    </dl>
+
+    @using (Html.BeginForm()) {
+        @Html.AntiForgeryToken()
+
+        <div class="form-actions no-color">
+            <input type="submit" value="Desactivar" class="btn btn-primary mr-2" /> 
+            <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+        </div>
+    }
+</div>
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+• Edit
+
+@model ProyectoWEB.Models.BVDH_Models.Chofer
+
+@{
+    ViewBag.Title = "Chofer";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Editar chofer</h2>
+
+@using (Html.BeginForm())
+{
+    @Html.AntiForgeryToken()
+    
+    <div class="form-horizontal">
+        <hr />
+        @Html.ValidationSummary(true, "", new { @class = "text-danger" })
+        @Html.HiddenFor(model => model.idChofer)
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cédula del chofer</label>
+                @Html.EditorFor(model => model.cedChofer, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.cedChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Nombre</label>
+                @Html.EditorFor(model => model.nombreChofer, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.nombreChofer, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Licencia</label>
+                @Html.EditorFor(model => model.tipoLicencia, new { htmlAttributes = new { @class = "form-control" } })
+                @Html.ValidationMessageFor(model => model.tipoLicencia, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Vencimiento de licencia</label>
+                @Html.EditorFor(model => model.fechaVencLic, new { htmlAttributes = new { @class = "form-control", @type = "date" } })
+                @Html.ValidationMessageFor(model => model.fechaVencLic, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-10">
+                <label>Cuenta</label>
+                @Html.DropDownList("id", null, htmlAttributes: new { @class = "form-control" })
+                @Html.ValidationMessageFor(model => model.id, "", new { @class = "text-danger" })
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-md-offset-2 col-md-10">
+                <input type="submit" value="Guardar cambios" class="btn btn-primary mr-2" />
+                <a class="btn btn-danger" href="@Url.Action("Index")">Cancelar</a>
+            </div>
+        </div>
+    </div>
+}
+
+</div>
+
+
+
+
+***********************************************************************************************************************************************************************
+
+
+
+
+• Index
+
+@model PagedList.IPagedList<ProyectoWEB.Models.BVDH_Models.Chofer>
+@using PagedList.Mvc;
+<link href="~/Content/PagedList.css" rel="stylesheet" />
+@{
+    ViewBag.Title = "Chofer";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Lista de choferes</h2>
+
+<p>
+    @Html.ActionLink("Ingresar chofer", "Create")
+</p>
+<br />
+@using (Html.BeginForm("Index", "Chofers", FormMethod.Get))
+{
+    <p>
+        @Html.TextBox("buscar", ViewBag.filtroActual as string)
+        <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
+    </p>
+}
+<table class="table">
+    <tr>
+        <th>
+            @Html.ActionLink("Cédula Chofer", "Index", new { ordenar = ViewBag.cedChoferSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Nombre", "Index", new { ordenar = ViewBag.nombreChoferSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Licencia", "Index", new { ordenar = ViewBag.tipoLicenciaSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Vencimiento de licencia", "Index", new { ordenar = ViewBag.fechaVencLicSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th>
+            @Html.ActionLink("Cuenta", "Index", new { ordenar = ViewBag.cuentaSortParm, filtroActual = ViewBag.FiltroActual })
+        </th>
+        <th></th>
+    </tr>
+
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.cedChofer)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.nombreChofer)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.tipoLicencia)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.fechaVencLic)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.AspNetUsers.Email)
+            </td>
+            <td>
+                @Html.ActionLink("Editar", "Edit", new { id = item.idChofer }) |
+                @Html.ActionLink("Desactivar", "Delete", new { id = item.idChofer })
+            </td>
+        </tr>
+    }
+
+</table>
+@Html.ActionLink("Datos Desactivados", "DataDisabled")
+<nav>
+    @Html.PagedListPager(Model, pagina => Url.Action("Index",
+    new { pagina, ordenar = ViewBag.tipoActual, filtroActual = ViewBag.FiltroActual }))
+</nav>
